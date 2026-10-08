@@ -1,0 +1,267 @@
+.page {
+	min-height: calc(100vh - 64px);
+
+	display: flex;
+	justify-content: center;
+
+	padding: 80px 32px;
+}
+
+.content {
+	width: 100%;
+	max-width: 640px;
+}
+
+.eyebrow {
+	margin: 0 0 16px;
+
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.12em;
+
+	opacity: 0.5;
+}
+
+.content h1 {
+	margin: 0 0 40px;
+
+	font-size: 2.5rem;
+	letter-spacing: -0.04em;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+
+	padding: 28px 0;
+
+	border-top: 1px solid var(--border);
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.field > span {
+	font-size: 0.9rem;
+	font-weight: 600;
+}
+
+.row {
+	display: flex;
+	gap: 10px;
+}
+
+.field input {
+	width: 100%;
+	padding: 12px 14px;
+
+	border: 1px solid var(--border);
+	border-radius: 8px;
+
+	background: var(--background);
+	color: var(--foreground);
+
+	outline: none;
+}
+
+.row button {
+	flex-shrink: 0;
+
+	padding: 12px 16px;
+
+	border: 0;
+	border-radius: 8px;
+
+	background: #2563eb;
+	color: white;
+
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.row button:hover {
+	background: #1d4ed8;
+}
+
+.danger {
+	margin-top: 16px;
+}
+
+.danger h2 {
+	margin: 0;
+
+	font-size: 1.1rem;
+}
+
+.danger p {
+	margin: -8px 0 0;
+
+	opacity: 0.65;
+	line-height: 1.5;
+}
+
+.dangerButton {
+	align-self: flex-start;
+
+	padding: 10px 16px;
+
+	border: 1px solid #dc2626;
+	border-radius: 8px;
+
+	background: transparent;
+	color: #dc2626;
+
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.dangerButton:hover {
+	background: #dc2626;
+	color: white;
+}
+
+.success {
+	position: fixed;
+	top: 84px;
+	left: 50%;
+
+	transform: translateX(-50%);
+
+	padding: 12px 18px;
+
+	border: 1px solid #bbf7d0;
+	border-radius: 8px;
+
+	background: #f0fdf4;
+	color: #166534;
+
+	font-size: 0.9rem;
+	font-weight: 600;
+
+	box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+
+	z-index: 100;
+}
+
+.passwordForm {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.passwordForm input {
+	width: 100%;
+	padding: 12px 14px;
+
+	border: 1px solid var(--border);
+	border-radius: 8px;
+
+	background: var(--background);
+	color: var(--foreground);
+
+	outline: none;
+}
+
+.passwordForm input:focus {
+	border-color: #2563eb;
+	box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
+.row button:disabled,
+.dangerButton:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.modalOverlay {
+	position: fixed;
+	inset: 0;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	padding: 24px;
+
+	background: rgb(0 0 0 / 0.45);
+
+	z-index: 200;
+}
+
+.modal {
+	width: 100%;
+	max-width: 440px;
+
+	padding: 28px;
+
+	border: 1px solid var(--border);
+	border-radius: 12px;
+
+	background: var(--background);
+	color: var(--foreground);
+
+	box-shadow: 0 12px 40px rgb(0 0 0 / 0.18);
+}
+
+.modal h2 {
+	margin: 0 0 16px;
+
+	font-size: 1.25rem;
+}
+
+.modal p {
+	margin: 0 0 12px;
+
+	line-height: 1.5;
+	opacity: 0.7;
+}
+
+.modalActions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+
+	margin-top: 24px;
+}
+
+.cancelButton,
+.confirmDangerButton {
+	padding: 10px 16px;
+
+	border-radius: 8px;
+
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.cancelButton {
+	border: 1px solid var(--border);
+
+	background: transparent;
+	color: var(--foreground);
+}
+
+.cancelButton:hover {
+	background: rgb(0 0 0 / 0.05);
+}
+
+.confirmDangerButton {
+	border: 1px solid #dc2626;
+
+	background: #dc2626;
+	color: white;
+}
+
+.confirmDangerButton:hover {
+	background: #b91c1c;
+}
+
+.cancelButton:disabled,
+.confirmDangerButton:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}

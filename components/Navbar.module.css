@@ -1,0 +1,87 @@
+.navbar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 1000;
+
+	width: 100%;
+	min-height: 48px;
+
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+
+	padding: 0 32px;
+
+	background: linear-gradient(
+		to right,
+		#2563eb,
+		#1d4ed8
+	);
+
+	color: white;
+}
+
+.left,
+.right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.brand {
+	margin-right: 20px;
+
+	color: white;
+	text-decoration: none;
+
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+.link,
+.logout {
+	padding: 8px 12px;
+
+	border-radius: 6px;
+
+	color: white;
+	text-decoration: none;
+
+	font-size: 0.9rem;
+	font-weight: 600;
+}
+
+.link:hover,
+.logout:hover {
+	background: rgb(255 255 255 / 0.14);
+}
+
+.logout {
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+}
+
+.themeToggle {
+	width: 36px;
+	height: 36px;
+
+	padding: 0;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	border: 0;
+	border-radius: 6px;
+
+	background: transparent;
+	color: white;
+
+	cursor: pointer;
+}
+
+.themeToggle:hover {
+	background: rgb(255 255 255 / 0.14);
+}

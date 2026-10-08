@@ -22,16 +22,6 @@ export default function Home() {
 						programming exercises, built to help students practice
 						and understand object-oriented programming.
 					</p>
-
-					<div className={styles.actions}>
-						<a href="/login" className={styles.primary}>
-							Sign in
-						</a>
-
-						<a href="#about" className={styles.secondary}>
-							Learn more
-						</a>
-					</div>
 				</section>
 
 				<section id="about" className={styles.about}>
@@ -43,8 +33,8 @@ export default function Home() {
 			</main>
 
 			<footer className={styles.footer}>
-				<span>© 2026 Wongsathon Panthudech</span>
-				<span>TutorGrader · OOP Learning Platform</span>
+				<span>© 2026 TutorGrader</span>
+				<span>OOP Learning Platform</span>
 			</footer>
 		</div>
 	);

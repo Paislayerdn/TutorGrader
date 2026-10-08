@@ -36,7 +36,7 @@ export default function LoginPage() {
 			const data = await response.json();
 
 			if (!response.ok) {
-				setError(data.error ?? "Unable to sign in.");
+				setError(data.error ?? "Unable to Log in.");
 				return;
 			}
 
@@ -52,10 +52,10 @@ export default function LoginPage() {
 	return (
 		<main className={styles.page}>
 			<div className={styles.card}>
-				<h1>Sign in</h1>
+				<h1>Log in</h1>
 
 				<p className={styles.description}>
-					Sign in to continue to TutorGrader.
+					Log in to continue to TutorGrader.
 				</p>
 
 				<form onSubmit={handleSubmit} className={styles.form}>
@@ -100,12 +100,12 @@ export default function LoginPage() {
 					)}
 
 					<button type="submit" disabled={loading}>
-						{loading ? "Signing in..." : "Sign in"}
+						{loading ? "Logging in..." : "Log in"}
 					</button>
 				</form>
 
 				<p className={styles.help}>
-					Forgot your password? Contact your tutor.
+					Forgot your password? Contact the owner.
 				</p>
 			</div>
 		</main>

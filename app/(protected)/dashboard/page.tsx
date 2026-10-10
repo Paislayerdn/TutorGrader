@@ -15,8 +15,6 @@ export default async function DashboardPage() {
 	return (
 		<main className={styles.page}>
 			<section className={styles.content}>
-				<p className={styles.eyebrow}>DASHBOARD</p>
-
 				<h1>Welcome, {user.username}.</h1>
 
 				<div className={styles.info}>

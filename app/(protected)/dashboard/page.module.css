@@ -43,16 +43,6 @@
 	padding: 96px 32px;
 }
 
-.eyebrow {
-	margin: 0 0 20px;
-
-	font-size: 0.8rem;
-	font-weight: 600;
-	letter-spacing: 0.12em;
-
-	opacity: 0.5;
-}
-
 .content h1 {
 	margin: 0;
 

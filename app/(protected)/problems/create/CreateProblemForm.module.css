@@ -1,0 +1,203 @@
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	margin-top: 32px;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	padding: 24px;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--background);
+}
+
+.section h2,
+.testCase h3 {
+	margin: 0;
+}
+
+.description,
+.hint {
+	color: var(--muted);
+	line-height: 1.6;
+}
+
+.hint {
+	margin: 0;
+	font-size: 13px;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.field span {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.field input,
+.field textarea,
+.field select,
+.itemRow input,
+.itemRow select {
+	width: 100%;
+	min-width: 0;
+	padding: 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--background);
+	color: var(--foreground);
+	font: inherit;
+}
+
+.field textarea {
+	resize: vertical;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 18px;
+}
+
+.testCaseGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 18px;
+}
+
+.sectionHeader,
+.item,
+.itemRow,
+.actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.itemList {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}
+
+.item {
+	padding: 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	overflow-wrap: anywhere;
+}
+
+.itemRow > input,
+.itemRow > select {
+	flex: 1;
+}
+
+.itemRow > button,
+.item > button {
+	flex-shrink: 0;
+}
+
+.testCase {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 18px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+}
+
+.secondaryButton,
+.removeButton,
+.primaryButton,
+.addButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 10px 14px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	font: inherit;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.secondaryButton,
+.addButton {
+	background: var(--background);
+	color: var(--foreground);
+}
+
+.removeButton {
+	background: transparent;
+	color: var(--foreground);
+}
+
+.primaryButton {
+	padding: 12px 20px;
+	border-color: var(--foreground);
+	background: var(--foreground);
+	color: var(--background);
+}
+
+.secondaryButton:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+.addButton {
+	width: fit-content;
+}
+
+.hiddenInput {
+	display: none;
+}
+
+.error {
+	color: #dc2626;
+	font-size: 14px;
+}
+
+.message {
+	color: var(--foreground);
+	font-size: 14px;
+}
+
+@media (max-width: 640px) {
+	.section {
+		padding: 16px;
+	}
+
+	.grid,
+	.testCaseGrid {
+		grid-template-columns: 1fr;
+	}
+
+	.sectionHeader,
+	.itemRow {
+		align-items: stretch;
+		flex-wrap: wrap;
+	}
+
+	.actions {
+		justify-content: stretch;
+	}
+
+	.primaryButton {
+		width: 100%;
+	}
+}

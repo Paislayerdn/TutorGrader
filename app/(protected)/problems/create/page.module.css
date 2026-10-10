@@ -1,0 +1,19 @@
+.page {
+	padding: 80px 24px 48px;
+}
+
+.content {
+	width: 100%;
+	max-width: 900px;
+	margin: 0 auto;
+}
+
+.content h1 {
+	margin: 0;
+}
+
+.description {
+	margin-top: 12px;
+	color: var(--muted);
+	line-height: 1.6;
+}

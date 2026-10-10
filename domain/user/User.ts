@@ -1,4 +1,4 @@
-	import { Principal } from "./Principal";
+import { Principal } from "./Principal";
 import { UserStatus } from "./UserStatus";
 import type { Admin } from "./Admin";
 

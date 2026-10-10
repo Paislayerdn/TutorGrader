@@ -7,11 +7,15 @@ import styles from "./page.module.css";
 type AccountFormProps = {
 	username: string;
 	registeredName: string;
+	createdAt: string;
+	createdBy: string;
 };
 
 export default function AccountForm({
 	username,
 	registeredName,
+	createdAt,
+	createdBy,
 }: AccountFormProps) {
 	const [currentUsername, setCurrentUsername] = useState(username);
 	const [editingUsername, setEditingUsername] = useState(false);
@@ -218,6 +222,26 @@ export default function AccountForm({
 							<input
 								type="text"
 								value={registeredName}
+								readOnly
+							/>
+						</div>
+						
+						<div className={styles.field}>
+							<span>Created at</span>
+
+							<input
+								type="text"
+								value={new Date(createdAt).toLocaleString()}
+								readOnly
+							/>
+						</div>
+
+						<div className={styles.field}>
+							<span>Created by</span>
+
+							<input
+								type="text"
+								value={createdBy}
 								readOnly
 							/>
 						</div>

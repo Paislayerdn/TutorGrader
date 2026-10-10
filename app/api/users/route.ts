@@ -3,6 +3,8 @@ import argon2 from "argon2";
 
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { Admin } from "@/domain/user/Admin";
+import { Owner } from "@/domain/user/Owner";
 
 export const runtime = "nodejs";
 
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
 		);
 	}
 
-	if (currentUser.role !== "ADMIN" && currentUser.role !== "OWNER") {
+	if (!(currentUser instanceof Admin)) {
 		return NextResponse.json(
 			{ error: "You do not have permission to create accounts." },
 			{ status: 403 }
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
 		);
 	}
 
-	if (currentUser.role === "ADMIN" && requestedRole !== "USER") {
+	if (!(currentUser instanceof Owner) && requestedRole !== "USER") {
 		return NextResponse.json(
 			{ error: "Admins can only create USER accounts." },
 			{ status: 403 }
@@ -62,6 +64,7 @@ export async function POST(request: Request) {
 			password_hash: passwordHash,
 			role: requestedRole,
 			status: "ACTIVE",
+			created_by: currentUser.id,
 		})
 		.select("id, username, registered_name, role, status")
 		.single();
@@ -82,8 +85,5 @@ export async function POST(request: Request) {
 		);
 	}
 
-	return NextResponse.json(
-		{ user: data },
-		{ status: 201 }
-	);
+	return NextResponse.json({ user: data }, { status: 201 });
 }

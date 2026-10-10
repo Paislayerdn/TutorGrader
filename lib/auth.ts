@@ -1,27 +1,24 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getSession } from "@/lib/session";
+import { UserRepository } from "@/domain/user/UserRepository";
+import { UserStatus } from "@/domain/user/UserStatus";
+
+const userRepository = new UserRepository();
 
 export async function getCurrentUser() {
 	const userId = await getSession();
 
-	if (!userId) {
-		return null;
-	}
+	if (!userId) return null;
 
-	const { data: user, error } = await supabaseAdmin
-		.from("app_user")
-		.select("id, username, registered_name, role, status")
-		.eq("id", userId)
-		.maybeSingle();
+	try {
+		const user = await userRepository.findById(userId);
 
-	if (error) {
+		if (!user || user.status !== UserStatus.ACTIVE) {
+			return null;
+		}
+
+		return user;
+	} catch (error) {
 		console.error("Current user lookup error:", error);
 		return null;
 	}
-
-	if (!user || user.status !== "ACTIVE") {
-		return null;
-	}
-
-	return user;
 }

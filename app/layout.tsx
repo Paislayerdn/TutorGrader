@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 
 import { getCurrentUser } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
@@ -7,7 +8,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
 	title: "TutorGrader",
-	description: "OOP Learning Platform",
+	description: "Computer Programming by Wongsathon",
 };
 
 export default async function RootLayout({
@@ -16,29 +17,18 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }>) {
 	const user = await getCurrentUser();
+	const cookieStore = await cookies();
+	const theme = cookieStore.get("theme")?.value === "dark"
+		? "dark"
+		: "light";
 
 	return (
 		<html
 			lang="en"
+			data-theme={theme}
 			data-scroll-behavior="smooth"
 			suppressHydrationWarning
 		>
-			<head>
-				<script
-					dangerouslySetInnerHTML={{
-						__html: `
-							(function () {
-								const theme = localStorage.getItem("theme");
-
-								if (theme === "dark") {
-									document.documentElement.dataset.theme = "dark";
-								}
-							})();
-						`,
-					}}
-				/>
-			</head>
-
 			<body>
 				<Navbar user={user} />
 				{children}

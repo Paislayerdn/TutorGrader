@@ -8,7 +8,9 @@ export default function LoginPage() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
-	const unauthorized = searchParams.get("error") === "unauthorized";
+	const errorType = searchParams.get("error");
+	const unauthorized = errorType === "unauthorized";
+	const sessionExpired = errorType === "session_expired";
 
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
@@ -86,6 +88,12 @@ export default function LoginPage() {
 							required
 						/>
 					</label>
+
+					{sessionExpired && (
+						<div className={styles.error}>
+							<p>Your session has expired. Please log in again.</p>
+						</div>
+					)}
 
 					{unauthorized && (
 						<p className={styles.error}>

@@ -7,28 +7,32 @@ export default function ThemeToggle() {
 	const [dark, setDark] = useState(false);
 
 	useEffect(() => {
-		const savedTheme = localStorage.getItem("theme");
+		const savedTheme =
+			document.cookie
+				.split("; ")
+				.find((cookie) => cookie.startsWith("theme="))
+				?.split("=")[1]
+			?? localStorage.getItem("theme");
 
-		if (savedTheme === "dark") {
-			document.documentElement.dataset.theme = "dark";
-			setDark(true);
-		} else {
-			document.documentElement.dataset.theme = "light";
-			setDark(false);
-		}
+		const isDark = savedTheme === "dark";
+
+		document.documentElement.dataset.theme = isDark
+			? "dark"
+			: "light";
+
+		setDark(isDark);
+
+		// Migrate the old localStorage preference to a cookie.
+		document.cookie = `theme=${isDark ? "dark" : "light"}; Path=/; Max-Age=31536000; SameSite=Lax`;
 	}, []);
 
 	function toggleTheme() {
 		const nextDark = !dark;
+		const theme = nextDark ? "dark" : "light";
 
-		document.documentElement.dataset.theme = nextDark
-			? "dark"
-			: "light";
-
-		localStorage.setItem(
-			"theme",
-			nextDark ? "dark" : "light"
-		);
+		document.documentElement.dataset.theme = theme;
+		localStorage.setItem("theme", theme);
+		document.cookie = `theme=${theme}; Path=/; Max-Age=31536000; SameSite=Lax`;
 
 		setDark(nextDark);
 	}

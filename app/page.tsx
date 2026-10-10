@@ -6,7 +6,7 @@ export default function Home() {
 			<main className={styles.main}>
 				<section className={styles.hero}>
 					<p className={styles.eyebrow}>
-						OBJECT ORIENTED PROGRAMMING
+						for OBJECT ORIENTED PROGRAMMING
 					</p>
 
 					<h1>
@@ -34,7 +34,7 @@ export default function Home() {
 
 			<footer className={styles.footer}>
 				<span>© 2026 TutorGrader</span>
-				<span>OOP Learning Platform</span>
+				<span>Computer Programming by Wongsathon</span>
 			</footer>
 		</div>
 	);

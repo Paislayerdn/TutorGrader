@@ -1,10 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-import { Problem, type ProblemData } from "./Problem";
+import { Problem } from "./Problem";
 import { ProblemStatus } from "./ProblemStatus";
-import { ProblemVersionRepository } from "./ProblemVersionRepository";
-
-import { OutputComparison } from "./OutputComparison";
+import { ProblemVersionRepository } from "./version/ProblemVersionRepository";
+import { OutputComparison } from "./version/OutputComparison";
 import { TestCase } from "./TestCase";
 
 export type CreateProblemDraftData = {
@@ -25,6 +24,7 @@ type ProblemRow = {
 	id: number;
 	status: "ACTIVE" | "FIXING" | "ARCHIVED";
 	current_version_number: number | null;
+	current_draft_number: number | null;
 	created_at: string;
 	updated_at: string;
 	created_by: string;
@@ -32,7 +32,7 @@ type ProblemRow = {
 
 export class ProblemRepository {
 	private static readonly PROBLEM_COLUMNS =
-		"id, status, current_version_number, created_at, updated_at, created_by";
+		"id, status, current_version_number, current_draft_number, created_at, updated_at, created_by";
 
 	private readonly problemVersionRepository = new ProblemVersionRepository();
 
@@ -120,28 +120,32 @@ export class ProblemRepository {
 	}
 
 	private async createProblem(row: ProblemRow): Promise<Problem> {
+		const versionNumbers = [
+			row.current_version_number,
+			row.current_draft_number,
+		].filter((number): number is number => number !== null);
+
 		const versions = [];
 
-		if (row.current_version_number !== null) {
+		for (const versionNumber of versionNumbers) {
 			const version =
 				await this.problemVersionRepository.findProblemVersion(
 					row.id,
-					row.current_version_number,
+					versionNumber,
 				);
 
 			if (version) versions.push(version);
 		}
 
-		const data: ProblemData = {
-			id: row.id,
-			createdById: row.created_by,
+		return new Problem(
+			row.id,
+			row.status as ProblemStatus,
+			row.current_version_number,
+			row.current_draft_number,
+			row.created_by,
+			new Date(row.created_at),
+			new Date(row.updated_at),
 			versions,
-			status: row.status as ProblemStatus,
-			currentVersionNumber: row.current_version_number,
-			createdAt: new Date(row.created_at),
-			updatedAt: new Date(row.updated_at),
-		};
-
-		return new Problem(data);
+		);
 	}
 }

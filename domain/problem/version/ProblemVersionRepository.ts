@@ -3,10 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { LanguageRepository } from "@/domain/language/LanguageRepository";
 import { StuffRepository } from "@/domain/stuff/StuffRepository";
 
-import { ProblemVersion, type ProblemVersionData } from "./ProblemVersion";
+import { ProblemVersion } from "./ProblemVersion";
 import { ProblemVersionStatus } from "./ProblemVersionStatus";
 import { OutputComparison } from "./OutputComparison";
-import { TestCase } from "./TestCase";
+import { TestCase } from "../TestCase";
 
 type ProblemVersionRow = {
 	problem_id: number;
@@ -148,28 +148,26 @@ export class ProblemVersionRepository {
 			throw new Error("Unable to load problem version attachments.");
 		}
 
-		const versionData: ProblemVersionData = {
-			problemId: row.problem_id,
-			versionNumber: row.version_number,
-			status: row.status as ProblemVersionStatus,
-			name: row.name,
-			description: row.description,
-			difficulty: row.difficulty,
-			timeLimitMs: row.time_limit_ms,
-			memoryLimitKb: row.memory_limit_kb,
-			outputComparison: row.output_comparison as OutputComparison,
-			createdAt: new Date(row.created_at),
-			publishedById: row.published_by,
-			publishedAt: row.published_at
+		return new ProblemVersion(
+			row.problem_id,
+			row.version_number,
+			row.status as ProblemVersionStatus,
+			row.name,
+			row.description,
+			row.difficulty,
+			row.time_limit_ms,
+			row.memory_limit_kb,
+			row.output_comparison as OutputComparison,
+			new Date(row.created_at),
+			row.published_by,
+			row.published_at
 				? new Date(row.published_at)
 				: null,
-			languages: selectedLanguages,
+			selectedLanguages,
 			requirements,
 			testCases,
-			stuffs: stuffs.filter(stuff => stuff !== null),
-		};
-
-		return new ProblemVersion(versionData);
+			stuffs.filter(stuff => stuff !== null),
+		);
 	}
 	
 	async findProblemVersions(problemId: number): Promise<ProblemVersion[]> {

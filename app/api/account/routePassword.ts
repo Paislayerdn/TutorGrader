@@ -56,12 +56,24 @@ export async function handlePassword(body: {
 
 	const passwordHash = await argon2.hash(newPassword);
 
-	const { error: updateError } = await supabaseAdmin
-		.from("app_user")
-		.update({
-			password_hash: passwordHash,
-		})
-		.eq("id", user.id);
+	const samePassword = await argon2.verify(
+		account.password_hash,
+		newPassword
+	);
+
+	if (samePassword) {
+		return NextResponse.json(
+			{ error: "New password must be different from the current password." },
+			{ status: 400 }
+		);
+	}
+	const { error: updateError } = await supabaseAdmin.rpc(
+		"change_password_with_history",
+		{
+			p_user_id: user.id,
+			p_password_hash: passwordHash,
+		}
+	);
 
 	if (updateError) {
 		console.error("Password update error:", updateError);

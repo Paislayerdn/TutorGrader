@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { Admin } from "@/domain/user/Admin";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { TestCase } from "@/domain/problem/TestCase";
-import { OutputComparison } from "@/domain/problem/OutputComparison";
+import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 
 export const runtime = "nodejs";
 

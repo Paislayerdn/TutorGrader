@@ -150,3 +150,10 @@
 	outline: 2px solid var(--foreground);
 	outline-offset: 4px;
 }
+.section {
+	margin-top: 2rem;
+}
+
+.section h2 {
+	margin-bottom: 1rem;
+}

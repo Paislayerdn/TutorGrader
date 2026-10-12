@@ -24,6 +24,14 @@ export default async function ProblemsPage() {
 		);
 	});
 
+	const publishedProblems = visibleProblems.filter(
+		problem => problem.currentVersionNumber !== null,
+	);
+
+	const draftProblems = visibleProblems.filter(
+		problem => problem.currentVersionNumber === null,
+	);
+
 	return (
 		<main className={styles.page}>
 			<section className={styles.content}>
@@ -44,45 +52,79 @@ export default async function ProblemsPage() {
 					Choose a problem to view its statement and submit your solution.
 				</p>
 
-				<div className={styles.list}>
-					{visibleProblems.length === 0 ? (
+				{canCreateProblem && draftProblems.length > 0 && (
+					<section className={styles.section}>
+						<h2>Drafts</h2>
+
+						<div className={styles.list}>
+							{draftProblems.map(problem => {
+								const version = problem.versions[0];
+
+								if (!version) return null;
+
+								return (
+									<Link
+										key={problem.id}
+										href={`/problems/${problem.id}/details`}
+										className={styles.problem}
+									>
+										<div className={styles.problemHeader}>
+											<h2>{version.name}</h2>
+
+											<span className={styles.version}>
+												Draft · Version {version.versionNumber}
+											</span>
+										</div>
+
+										<p className={styles.difficulty}>
+											{version.difficulty ?? "Unspecified difficulty"}
+										</p>
+									</Link>
+								);
+							})}
+						</div>
+					</section>
+				)}
+
+				<section className={styles.section}>
+					<h2>Published Problems</h2>
+
+					{publishedProblems.length === 0 ? (
 						<p className={styles.empty}>
-							No active problems available.
+							No published problems available.
 						</p>
 					) : (
-						visibleProblems.map(problem => {
-							const isDraft = problem.currentVersionNumber === null;
+						<div className={styles.list}>
+							{publishedProblems.map(problem => {
+								const version = problem.getVersion(
+									problem.currentVersionNumber!,
+								);
 
-							const version = isDraft
-								? problem.versions[0]
-								: problem.getVersion(problem.currentVersionNumber!);
+								if (!version) return null;
 
-							if (!version) return null;
+								return (
+									<Link
+										key={problem.id}
+										href={`/problems/${problem.id}/details`}
+										className={styles.problem}
+									>
+										<div className={styles.problemHeader}>
+											<h2>{version.name}</h2>
 
-							return (
-								<Link
-									key={problem.id}
-									href={`/problems/${problem.id}/details`}
-									className={styles.problem}
-								>
-									<div className={styles.problemHeader}>
-										<h2>{version.name}</h2>
+											<span className={styles.version}>
+												Version {version.versionNumber}
+											</span>
+										</div>
 
-										<span className={styles.version}>
-											{isDraft
-												? `Draft · Version ${version.versionNumber}`
-												: `Version ${version.versionNumber}`}
-										</span>
-									</div>
-
-									<p className={styles.difficulty}>
-										{version.difficulty ?? "Unspecified difficulty"}
-									</p>
-								</Link>
-							);
-						})
+										<p className={styles.difficulty}>
+											{version.difficulty ?? "Unspecified difficulty"}
+										</p>
+									</Link>
+								);
+							})}
+						</div>
 					)}
-				</div>
+				</section>
 			</section>
 		</main>
 	);

@@ -2,27 +2,29 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 import { Admin } from "./Admin";
 import { Owner } from "./Owner";
-import { User, type UserData } from "./User";
+import { User } from "./User";
+import { UserData } from "./UserData";
+import { UserDTO } from "./UserDTO";
 import { UserStatus } from "./UserStatus";
 
 type UserRow = {
 	id: string;
 	username: string;
 	registered_name: string;
-	password_hash: string;
-	created_at: string;
-	created_by: string;
-	role: "USER" | "ADMIN" | "OWNER";
 	status: "ACTIVE" | "BANNED" | "INACTIVE";
+	role: "USER" | "ADMIN" | "OWNER";
+	created_by: string;
+	created_at: string;
+	password_changed_at: string | null;
+	creator_username: string;
+	creator_registered_name: string;
 };
 
 export class UserRepository {
-	private static readonly USER_COLUMNS = "id, username, registered_name, password_hash, created_at, created_by, role, status";
-
 	async findById(id: string): Promise<User | null> {
 		const { data, error } = await supabaseAdmin
-			.from("app_user")
-			.select(UserRepository.USER_COLUMNS)
+			.from("app_user_view")
+			.select("*")
 			.eq("id", id)
 			.maybeSingle();
 
@@ -33,58 +35,67 @@ export class UserRepository {
 
 		if (!data) return null;
 
-		return this.createUser(data as UserRow, null);
+		return this.createUser(data as UserRow);
 	}
 
 	async findByIdWithCreator(id: string): Promise<User | null> {
 		const user = await this.findById(id);
 		if (!user) return null;
 
-		// The root Owner is their own creator.
 		if (user instanceof Owner && user.createdById === user.id) {
+			user.createdBy = user;
 			return user;
 		}
 
-		const { data, error } = await supabaseAdmin
-			.from("app_user")
-			.select(UserRepository.USER_COLUMNS)
-			.eq("id", user.createdById)
-			.maybeSingle();
-
-		if (error) {
-			console.error("Creator lookup error:", error);
-			throw new Error("Unable to load user creator.");
-		}
-
-		if (!data) throw new Error("User creator was not found.");
-
-		const creator = this.createUser(data as UserRow, null);
+		const creator = await this.findById(user.createdById);
 
 		if (!(creator instanceof Admin)) {
 			throw new Error("User creator must be an Admin or Owner.");
 		}
 
-		user.setCreator(creator);
+		user.createdBy = creator;
 		return user;
 	}
+	async findDTOById(id: string): Promise<UserDTO | null> {
+		const { data, error } = await supabaseAdmin
+			.from("app_user_view")
+			.select("*")
+			.eq("id", id)
+			.maybeSingle();
 
-	private createUser(row: UserRow, creator: Admin | null): User {
-		const data: UserData = {
-			id: row.id,
-			username: row.username,
-			registeredName: row.registered_name,
-			passwordHash: row.password_hash,
-			createdAt: new Date(row.created_at),
-			createdById: row.created_by,
-			createdBy: creator,
-			status: row.status as UserStatus,
-		};
+		if (error) {
+			console.error("User lookup error:", error);
+			throw new Error("Unable to load user.");
+		}
+
+		if (!data) return null;
+
+		const row = data as UserRow;
+		const user = this.createUser(row);
+
+		const creatorName =
+			row.creator_username || row.creator_registered_name;
+
+		return user.toDTO(creatorName);
+	}
+
+	private createUser(row: UserRow): User {
+		const data = new UserData(
+			row.registered_name,
+			row.username,
+			row.status as UserStatus,
+			new Date(row.created_at)
+		);
 
 		switch (row.role) {
-			case "OWNER": return new Owner(data);
-			case "ADMIN": return new Admin(data);
-			case "USER": return new User(data);
-			default: throw new Error(`Unknown user role: ${row.role}`);
+			case "OWNER":
+				return new Owner(row.id, data, row.created_by);
+
+			case "ADMIN":
+				return new Admin(row.id, data, row.created_by, null);
+
+			case "USER":
+				return new User(row.id, data, row.created_by, null);
 		}
 	}
 }

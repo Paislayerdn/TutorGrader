@@ -237,268 +237,270 @@ export default function CreateProblemForm({ languages }: Props) {
 
 	return (
 		<form className={styles.form} onSubmit={handleSubmit}>
-			<section className={styles.section}>
-				<h2>Basic Information</h2>
-
-				<label className={styles.field}>
-					<span>Problem name</span>
-					<input
-						required
-						value={name}
-						onChange={event => setName(event.target.value)}
-						placeholder="e.g. Sum of Two Numbers"
-					/>
-				</label>
-
-				<label className={styles.field}>
-					<span>Description</span>
-					<textarea
-						rows={7}
-						value={description}
-						onChange={event => setDescription(event.target.value)}
-						placeholder="Describe the problem..."
-					/>
-				</label>
-
-				<div className={styles.grid}>
-					<label className={styles.field}>
-						<span>Difficulty</span>
-						<input
-							value={difficulty}
-							onChange={event => setDifficulty(event.target.value)}
-							placeholder="e.g. Easy"
-						/>
-					</label>
+			<div className={styles.formBox}>
+				<section className={styles.section}>
+					<h2>Basic Information</h2>
 
 					<label className={styles.field}>
-						<span>Time limit (milliseconds)</span>
+						<span>Problem name</span>
 						<input
-							type="number"
-							min="0"
 							required
-							value={timeLimitMs}
-							onChange={event => setTimeLimitMs(event.target.value)}
+							value={name}
+							onChange={event => setName(event.target.value)}
+							placeholder="e.g. Sum of Two Numbers"
 						/>
-						<p className={styles.hint}>
-							0 means unlimited time. The execution provider may still impose
-							its own timeout.
-						</p>
 					</label>
 
 					<label className={styles.field}>
-						<span>Memory limit (KB)</span>
-						<input
-							type="number"
-							min="0"
-							required
-							value={memoryLimitKb}
-							onChange={event => setMemoryLimitKb(event.target.value)}
+						<span>Description</span>
+						<textarea
+							rows={7}
+							value={description}
+							onChange={event => setDescription(event.target.value)}
+							placeholder="Describe the problem..."
 						/>
-						<p className={styles.hint}>
-							0 means unlimited memory. The execution provider
-							may still impose its own memory limit.
-						</p>
 					</label>
 
-					<label className={styles.field}>
-						<span>Output comparison</span>
-						<select
-							value={outputComparison}
-							onChange={event => setOutputComparison(event.target.value)}
-						>
-							<option value="EXACT">Exact</option>
-							<option value="TRIM">Trim whitespace</option>
-							<option value="FREE">Free comparison</option>
-						</select>
-					</label>
-				</div>
-			</section>
+					<div className={styles.grid}>
+						<label className={styles.field}>
+							<span>Difficulty</span>
+							<input
+								value={difficulty}
+								onChange={event => setDifficulty(event.target.value)}
+								placeholder="e.g. Easy"
+							/>
+						</label>
 
-			<section className={styles.section}>
-				<h2>Attachments</h2>
-				<p className={styles.hint}>
-					Add PDF documents or images. Files are currently selected
-					locally and have not been uploaded.
-				</p>
+						<label className={styles.field}>
+							<span>Time limit (milliseconds)</span>
+							<input
+								type="number"
+								min="0"
+								required
+								value={timeLimitMs}
+								onChange={event => setTimeLimitMs(event.target.value)}
+							/>
+							<p className={styles.hint}>
+								0 means unlimited time. The execution provider may still impose
+								its own timeout.
+							</p>
+						</label>
 
-				<label className={styles.addButton}>
-					+ Add file
-					<input
-						type="file"
-						accept=".pdf,image/*"
-						multiple
-						className={styles.hiddenInput}
-						onChange={event => {
-							addAttachments(event.target.files);
-							event.target.value = "";
-						}}
-					/>
-				</label>
+						<label className={styles.field}>
+							<span>Memory limit (KB)</span>
+							<input
+								type="number"
+								min="0"
+								required
+								value={memoryLimitKb}
+								onChange={event => setMemoryLimitKb(event.target.value)}
+							/>
+							<p className={styles.hint}>
+								0 means unlimited memory. The execution provider
+								may still impose its own memory limit.
+							</p>
+						</label>
 
-				{attachments.length > 0 && (
-					<ul className={styles.itemList}>
-						{attachments.map(attachment => (
-							<li key={attachment.id} className={styles.item}>
-								<span>{attachment.file.name}</span>
-								<button
-									type="button"
-									className={styles.removeButton}
-									onClick={() => removeAttachment(attachment.id)}
-								>
-									Remove
-								</button>
-							</li>
-						))}
-					</ul>
-				)}
-			</section>
-
-			<section className={styles.section}>
-				<div className={styles.sectionHeader}>
-					<h2>Requirements</h2>
-					<button
-						type="button"
-						className={styles.secondaryButton}
-						onClick={addRequirement}
-					>
-						+ Add requirement
-					</button>
-				</div>
-
-				{requirements.length === 0 && (
-					<p className={styles.hint}>No requirements added.</p>
-				)}
-
-				{requirements.map((requirement, index) => (
-					<div key={requirement.id} className={styles.itemRow}>
-						<input
-							aria-label={`Requirement ${index + 1}`}
-							value={requirement.value}
-							onChange={event =>
-								updateRequirement(requirement.id, event.target.value)
-							}
-							placeholder={`Requirement ${index + 1}`}
-						/>
-						<button
-							type="button"
-							className={styles.removeButton}
-							onClick={() => removeRequirement(requirement.id)}
-						>
-							Remove
-						</button>
+						<label className={styles.field}>
+							<span>Output comparison</span>
+							<select
+								value={outputComparison}
+								onChange={event => setOutputComparison(event.target.value)}
+							>
+								<option value="EXACT">Exact</option>
+								<option value="TRIM">Trim whitespace</option>
+								<option value="FREE">Free comparison</option>
+							</select>
+						</label>
 					</div>
-				))}
-			</section>
+				</section>
 
-			<section className={styles.section}>
-				<h2>Supported Languages</h2>
+				<section className={styles.section}>
+					<h2>Attachments</h2>
+					<p className={styles.hint}>
+						Add PDF documents or images. Files are currently selected
+						locally and have not been uploaded.
+					</p>
 
-				{selectedLanguages.length > 0 && (
-					<ul className={styles.itemList}>
-						{selectedLanguages.map(id => {
-							const language = languages.find(item => item.id === id);
-							if (!language) return null;
+					<label className={styles.addButton}>
+						+ Add file
+						<input
+							type="file"
+							accept=".pdf,image/*"
+							multiple
+							className={styles.hiddenInput}
+							onChange={event => {
+								addAttachments(event.target.files);
+								event.target.value = "";
+							}}
+						/>
+					</label>
 
-							return (
-								<li key={id} className={styles.item}>
-									<div>
-										<strong>{language.name}</strong>
-										{language.extensions.length > 0 && (
-											<p className={styles.hint}>
-												Extensions: {language.extensions.join(", ")}
-											</p>
-										)}
-									</div>
-
+					{attachments.length > 0 && (
+						<ul className={styles.itemList}>
+							{attachments.map(attachment => (
+								<li key={attachment.id} className={styles.item}>
+									<span>{attachment.file.name}</span>
 									<button
 										type="button"
 										className={styles.removeButton}
-										onClick={() => removeLanguage(id)}
+										onClick={() => removeAttachment(attachment.id)}
 									>
 										Remove
 									</button>
 								</li>
-							);
-						})}
-					</ul>
-				)}
-
-				<div className={styles.itemRow}>
-					<select
-						aria-label="Language to add"
-						value={languageToAdd}
-						onChange={event => setLanguageToAdd(event.target.value)}
-					>
-						<option value="">Choose a language...</option>
-						{languages
-							.filter(language => !selectedLanguages.includes(language.id))
-							.map(language => (
-								<option key={language.id} value={language.id}>
-									{language.name}
-								</option>
 							))}
-					</select>
+						</ul>
+					)}
+				</section>
 
-					<button
-						type="button"
-						className={styles.secondaryButton}
-						onClick={addLanguage}
-						disabled={!languageToAdd}
-					>
-						+ Add language
-					</button>
-				</div>
-			</section>
+				<section className={styles.section}>
+					<div className={styles.sectionHeader}>
+						<h2>Requirements</h2>
+						<button
+							type="button"
+							className={styles.secondaryButton}
+							onClick={addRequirement}
+						>
+							+ Add requirement
+						</button>
+					</div>
 
-			<section className={styles.section}>
-				<div className={styles.sectionHeader}>
-					<h2>Test Cases</h2>
-					<button
-						type="button"
-						className={styles.secondaryButton}
-						onClick={addTestCase}
-					>
-						+ Add test case
-					</button>
-				</div>
+					{requirements.length === 0 && (
+						<p className={styles.hint}>No requirements added.</p>
+					)}
 
-				{testCases.map((testCase, index) => (
-					<article key={index} className={styles.testCase}>
-						<h3>Test Case {index + 1}</h3>
-
-						<div className={styles.testCaseGrid}>
-							<label className={styles.field}>
-								<span>Input</span>
-								<textarea
-									rows={4}
-									value={testCase.input}
-									onChange={event =>
-										updateTestCase(index, "input", event.target.value)
-									}
-									placeholder="Test case input..."
-								/>
-							</label>
-
-							<label className={styles.field}>
-								<span>Expected output</span>
-								<textarea
-									rows={4}
-									value={testCase.expectedOutput}
-									onChange={event =>
-										updateTestCase(
-											index,
-											"expectedOutput",
-											event.target.value,
-										)
-									}
-									placeholder="Expected output..."
-								/>
-							</label>
+					{requirements.map((requirement, index) => (
+						<div key={requirement.id} className={styles.itemRow}>
+							<input
+								aria-label={`Requirement ${index + 1}`}
+								value={requirement.value}
+								onChange={event =>
+									updateRequirement(requirement.id, event.target.value)
+								}
+								placeholder={`Requirement ${index + 1}`}
+							/>
+							<button
+								type="button"
+								className={styles.removeButton}
+								onClick={() => removeRequirement(requirement.id)}
+							>
+								Remove
+							</button>
 						</div>
-					</article>
-				))}
-			</section>
+					))}
+				</section>
 
+				<section className={styles.section}>
+					<h2>Supported Languages</h2>
+
+					{selectedLanguages.length > 0 && (
+						<ul className={styles.itemList}>
+							{selectedLanguages.map(id => {
+								const language = languages.find(item => item.id === id);
+								if (!language) return null;
+
+								return (
+									<li key={id} className={styles.item}>
+										<div>
+											<strong>{language.name}</strong>
+											{language.extensions.length > 0 && (
+												<p className={styles.hint}>
+													Extensions: {language.extensions.join(", ")}
+												</p>
+											)}
+										</div>
+
+										<button
+											type="button"
+											className={styles.removeButton}
+											onClick={() => removeLanguage(id)}
+										>
+											Remove
+										</button>
+									</li>
+								);
+							})}
+						</ul>
+					)}
+
+					<div className={styles.itemRow}>
+						<select
+							aria-label="Language to add"
+							value={languageToAdd}
+							onChange={event => setLanguageToAdd(event.target.value)}
+						>
+							<option value="">Choose a language...</option>
+							{languages
+								.filter(language => !selectedLanguages.includes(language.id))
+								.map(language => (
+									<option key={language.id} value={language.id}>
+										{language.name}
+									</option>
+								))}
+						</select>
+
+						<button
+							type="button"
+							className={styles.secondaryButton}
+							onClick={addLanguage}
+							disabled={!languageToAdd}
+						>
+							+ Add language
+						</button>
+					</div>
+				</section>
+
+				<section className={styles.section}>
+					<div className={styles.sectionHeader}>
+						<h2>Test Cases</h2>
+						<button
+							type="button"
+							className={styles.secondaryButton}
+							onClick={addTestCase}
+						>
+							+ Add test case
+						</button>
+					</div>
+
+					{testCases.map((testCase, index) => (
+						<article key={index} className={styles.testCase}>
+							<h3>Test Case {index + 1}</h3>
+
+							<div className={styles.testCaseGrid}>
+								<label className={styles.field}>
+									<span>Input</span>
+									<textarea
+										rows={4}
+										value={testCase.input}
+										onChange={event =>
+											updateTestCase(index, "input", event.target.value)
+										}
+										placeholder="Test case input..."
+									/>
+								</label>
+
+								<label className={styles.field}>
+									<span>Expected output</span>
+									<textarea
+										rows={4}
+										value={testCase.expectedOutput}
+										onChange={event =>
+											updateTestCase(
+												index,
+												"expectedOutput",
+												event.target.value,
+											)
+										}
+										placeholder="Expected output..."
+									/>
+								</label>
+							</div>
+						</article>
+					))}
+				</section>
+			</div>
+			
 			{error && <p className={styles.error}>{error}</p>}
 			{message && <p className={styles.message}>{message}</p>}
 
@@ -509,6 +511,7 @@ export default function CreateProblemForm({ languages }: Props) {
 			>
 				{isSubmitting ? "Saving Draft..." : "Save Draft"}
 			</button>
+			
 		</form>
 	);
 }

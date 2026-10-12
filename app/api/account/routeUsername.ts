@@ -17,6 +17,12 @@ export async function handleUsername(body: {
 
 	const username = body.username?.trim();
 
+	if (username === user.username) {
+		return NextResponse.json(
+			{ error: "New username must be different from the current username." },
+			{ status: 400 }
+		);
+	}
 	if (!username) {
 		return NextResponse.json(
 			{ error: "Username is required." },
@@ -24,14 +30,13 @@ export async function handleUsername(body: {
 		);
 	}
 
-	const { data, error } = await supabaseAdmin
-		.from("app_user")
-		.update({
-			username,
-		})
-		.eq("id", user.id)
-		.select("id, username, registered_name, role, status")
-		.single();
+	const { data, error } = await supabaseAdmin.rpc(
+		"change_username_with_history",
+		{
+			p_user_id: user.id,
+			p_username: username,
+		}
+	);
 
 	if (error) {
 		console.error("Username update error:", error);
@@ -48,6 +53,10 @@ export async function handleUsername(body: {
 			{ status: 500 }
 		);
 	}
+
+	return NextResponse.json({
+		user: data,
+	});
 
 	return NextResponse.json({
 		user: data,

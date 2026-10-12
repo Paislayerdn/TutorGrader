@@ -1,10 +1,14 @@
 import { Admin } from "./Admin";
-import type { UserData } from "./User";
+import { UserData } from "./UserData";
 
 export class Owner extends Admin {
-	constructor(data: UserData) {
-		super({ ...data, createdBy: null });
-		this.setCreator(this);
+	constructor(
+		id: string,
+		data: UserData,
+		createdById: string
+	) {
+		super(id, data, createdById, null);
+		this.createdBy = this;
 	}
 
 	public override get role(): "USER" | "ADMIN" | "OWNER" { return "OWNER"; }

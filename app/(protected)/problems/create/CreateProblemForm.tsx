@@ -178,34 +178,32 @@ export default function CreateProblemForm({ languages }: Props) {
 			return;
 		}
 
-		if (attachments.length > 0) {
-			setError(
-				"File uploads aren't implemented yet. Remove the selected attachments before saving this draft.",
-			);
-			return;
-		}
-
 		setIsSubmitting(true);
 
 		try {
+			const formData = new FormData();
+
+			formData.append("payload", JSON.stringify({
+				name: trimmedName,
+				description: description.trim() || null,
+				difficulty: difficulty.trim() || null,
+				timeLimitMs: Number(timeLimitMs),
+				memoryLimitKb: Number(memoryLimitKb),
+				outputComparison,
+				languageIds: selectedLanguages,
+				requirements: requirements
+					.map(requirement => requirement.value.trim())
+					.filter(Boolean),
+				testCases,
+			}));
+
+			for (const attachment of attachments) {
+				formData.append("files", attachment.file);
+			}
+
 			const response = await fetch("/api/problems", {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					name: trimmedName,
-					description: description.trim() || null,
-					difficulty: difficulty.trim() || null,
-					timeLimitMs: Number(timeLimitMs),
-					memoryLimitKb: Number(memoryLimitKb),
-					outputComparison,
-					languageIds: selectedLanguages,
-					requirements: requirements
-						.map(requirement => requirement.value.trim())
-						.filter(Boolean),
-					testCases,
-				}),
+				body: formData,
 			});
 
 			const result: unknown = await response.json();
@@ -318,8 +316,8 @@ export default function CreateProblemForm({ languages }: Props) {
 				<section className={styles.section}>
 					<h2>Attachments</h2>
 					<p className={styles.hint}>
-						Add PDF documents or images. Files are currently selected
-						locally and have not been uploaded.
+						Add PDF documents or images. Files are uploaded when you save the draft.
+						Combined file size limit: 4 MiB.
 					</p>
 
 					<label className={styles.addButton}>

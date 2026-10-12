@@ -1,14 +1,39 @@
+import { randomUUID } from "node:crypto";
+import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { StuffRepository, type CreateStuffData } from "@/domain/stuff/StuffRepository";
 import { TestCase } from "@/domain/problem/TestCase";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 
 export const runtime = "nodejs";
 
+const BUCKET = "problem-files";
+const MAX_FILES = 10;
+const MAX_TOTAL_SIZE = 4 * 1024 * 1024;
+
 const problemRepository = new ProblemRepository();
+const stuffRepository = new StuffRepository();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeFilename(filename: string): string {
+	const basename = filename.replace(/\\/g, "/").split("/").pop() ?? "";
+	const cleaned = basename
+		.replace(/[\u0000-\u001f\u007f]/g, "")
+		.replace(/[<>:"|?*]/g, "_")
+		.trim();
+
+	return cleaned && cleaned !== "." && cleaned !== ".."
+		? cleaned
+		: "attachment";
+}
 
 export async function POST(request: Request) {
 	const currentUser = await getCurrentUser();
@@ -28,34 +53,39 @@ export async function POST(request: Request) {
 	}
 
 	let body: Record<string, unknown>;
+	let files: File[];
 
 	try {
-		const parsed: unknown = await request.json();
+		const formData = await request.formData();
+		const payload = formData.get("payload");
+		const rawFiles = formData.getAll("files");
 
-		if (
-			typeof parsed !== "object" ||
-			parsed === null ||
-			Array.isArray(parsed)
-		) {
-			throw new Error("Invalid request body.");
+		if (typeof payload !== "string") {
+			throw new Error("Missing problem data.");
 		}
 
-		body = parsed as Record<string, unknown>;
+		const parsed: unknown = JSON.parse(payload);
+
+		if (!isRecord(parsed)) {
+			throw new Error("Invalid problem data.");
+		}
+
+		if (!rawFiles.every(value => value instanceof File)) {
+			throw new Error("Invalid uploaded files.");
+		}
+
+		body = parsed;
+		files = rawFiles as File[];
 	} catch {
 		return NextResponse.json(
-			{ error: "Invalid request body." },
+			{ error: "Invalid multipart request." },
 			{ status: 400 },
 		);
 	}
 
-	const name =
-		typeof body.name === "string" ? body.name.trim() : "";
-
+	const name = typeof body.name === "string" ? body.name.trim() : "";
 	const description =
-		typeof body.description === "string"
-			? body.description
-			: null;
-
+		typeof body.description === "string" ? body.description : null;
 	const difficulty =
 		typeof body.difficulty === "string"
 			? body.difficulty.trim() || null
@@ -103,9 +133,7 @@ export async function POST(request: Request) {
 	if (
 		!Array.isArray(languageIds) ||
 		languageIds.length === 0 ||
-		!languageIds.every(
-			id => Number.isSafeInteger(id) && id > 0,
-		)
+		!languageIds.every(id => Number.isSafeInteger(id) && id > 0)
 	) {
 		return NextResponse.json(
 			{ error: "Select at least one valid language." },
@@ -128,8 +156,7 @@ export async function POST(request: Request) {
 		rawTestCases.length === 0 ||
 		!rawTestCases.every(
 			testCase =>
-				typeof testCase === "object" &&
-				testCase !== null &&
+				isRecord(testCase) &&
 				typeof testCase.input === "string" &&
 				typeof testCase.expectedOutput === "string",
 		)
@@ -140,7 +167,78 @@ export async function POST(request: Request) {
 		);
 	}
 
+	if (files.length > MAX_FILES) {
+		return NextResponse.json(
+			{ error: `You can upload at most ${MAX_FILES} files.` },
+			{ status: 400 },
+		);
+	}
+
+	let totalSize = 0;
+	const filenames: string[] = [];
+
+	for (const file of files) {
+		const filename = sanitizeFilename(file.name);
+		const extension = extname(filename).toLowerCase();
+		const isPdf = file.type === "application/pdf" && extension === ".pdf";
+		const isImage = file.type.startsWith("image/") && extension !== ".pdf";
+
+		if (!isPdf && !isImage) {
+			return NextResponse.json(
+				{ error: `Unsupported file type: ${filename}` },
+				{ status: 400 },
+			);
+		}
+
+		totalSize += file.size;
+		filenames.push(filename);
+	}
+
+	if (totalSize > MAX_TOTAL_SIZE) {
+		return NextResponse.json(
+			{ error: "The combined file size must not exceed 4 MiB." },
+			{ status: 413 },
+		);
+	}
+
+	const uploadedPaths: string[] = [];
+	const stuffRecords: CreateStuffData[] = [];
+	let metadataCreated = false;
+
 	try {
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			const filename = filenames[i];
+			const id = randomUUID();
+			const storagePath =
+				`${currentUser.id}/${id}/${filename}`;
+
+			const { error } = await supabaseAdmin.storage
+				.from(BUCKET)
+				.upload(storagePath, file, {
+					contentType: file.type,
+					upsert: false,
+				});
+
+			if (error) {
+				console.error("Storage upload error:", error);
+				throw new Error("Unable to upload attachments.");
+			}
+
+			uploadedPaths.push(storagePath);
+
+			stuffRecords.push({
+				id,
+				fileExtension: extname(filename).slice(1).toLowerCase(),
+				bucket: BUCKET,
+				storagePath,
+				uploadedById: currentUser.id,
+			});
+		}
+
+		await stuffRepository.createMany(stuffRecords);
+		metadataCreated = stuffRecords.length > 0;
+
 		const created = await problemRepository.createDraft({
 			createdById: currentUser.id,
 			name,
@@ -154,10 +252,11 @@ export async function POST(request: Request) {
 			testCases: rawTestCases.map((testCase, index) =>
 				new TestCase({
 					order: index + 1,
-					input: testCase.input,
-					expectedOutput: testCase.expectedOutput,
+					input: testCase.input as string,
+					expectedOutput: testCase.expectedOutput as string,
 				}),
 			),
+			stuffIds: stuffRecords.map(stuff => stuff.id),
 		});
 
 		return NextResponse.json(
@@ -167,8 +266,36 @@ export async function POST(request: Request) {
 	} catch (error) {
 		console.error("Problem draft creation error:", error);
 
+		let safeToRemoveFiles = true;
+
+		if (metadataCreated) {
+			try {
+				await stuffRepository.deleteByIds(
+					stuffRecords.map(stuff => stuff.id),
+				);
+			} catch (cleanupError) {
+				// A draft may already reference these rows. Preserve its files.
+				safeToRemoveFiles = false;
+				console.error("Metadata rollback failed:", cleanupError);
+			}
+		}
+
+		if (safeToRemoveFiles && uploadedPaths.length > 0) {
+			const { error: cleanupError } = await supabaseAdmin.storage
+				.from(BUCKET)
+				.remove(uploadedPaths);
+
+			if (cleanupError) {
+				console.error("Storage rollback failed:", cleanupError);
+			}
+		}
+
 		return NextResponse.json(
-			{ error: "Unable to create problem draft." },
+			{
+				error: error instanceof Error
+					? error.message
+					: "Unable to create problem draft.",
+			},
 			{ status: 500 },
 		);
 	}

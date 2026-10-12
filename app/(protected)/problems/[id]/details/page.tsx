@@ -8,6 +8,8 @@ import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Admin } from "@/domain/user/Admin";
 
+import PublishProblemButton from "./PublishProblemButton";		
+
 type Props = {
 	params: Promise<{
 		id: string;
@@ -66,9 +68,15 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						</div>
 
 						{isAdmin && (
-							<span className={styles.status}>
-								{isDraft ? "DRAFT" : problem.status}
-							</span>
+							<div className={styles.headerActions}>
+								<span className={styles.status}>
+									{isDraft ? "DRAFT" : problem.status}
+								</span>
+
+								{isDraft && (
+									<PublishProblemButton problemId={problem.id} />
+								)}
+							</div>
 						)}
 					</header>
 

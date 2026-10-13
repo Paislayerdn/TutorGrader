@@ -7,7 +7,8 @@ import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Admin } from "@/domain/user/Admin";
 
-import PublishProblemButton from "./PublishProblemButton";		
+import PublishProblemButton from "./PublishProblemButton";
+import ChangeProblemStatus from "./ChangeProblemStatus";
 
 type Props = {
 	params: Promise<{
@@ -82,8 +83,13 @@ export default async function ProblemDetailsPage({ params }: Props) {
 									{isDraft ? "DRAFT" : problem.status}
 								</span>
 
-								{isDraft && (
+								{isDraft ? (
 									<PublishProblemButton problemId={problem.id} />
+								) : (
+									<ChangeProblemStatus
+										problemId={problem.id}
+										currentStatus={problem.status}
+									/>
 								)}
 							</div>
 						)}

@@ -146,4 +146,16 @@ export class ProblemRepository {
 			versions,
 		);
 	}
+
+	async updateStatus(id: number, status: ProblemStatus): Promise<void> {
+		const { error } = await supabaseAdmin
+			.from("problem")
+			.update({ status })
+			.eq("id", id);
+
+		if (error) {
+			console.error("Problem status update error:", error);
+			throw new Error("Unable to update problem status.");
+		}
+	}
 }

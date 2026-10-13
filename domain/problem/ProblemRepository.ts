@@ -20,6 +20,11 @@ export type CreateProblemDraftData = {
 	stuffIds?: string[];
 };
 
+type DeletedDraftStuff = {
+	bucket: string;
+	storage_path: string;
+};
+
 type ProblemRow = {
 	id: number;
 	status: "ACTIVE" | "FIXING" | "INACTIVE";
@@ -83,7 +88,20 @@ export class ProblemRepository {
 			versionNumber: created.version_number,
 		};
 	}
-	
+
+	async deleteDraft(id: number): Promise<DeletedDraftStuff[]> {
+		const { data, error } = await supabaseAdmin.rpc(
+			"delete_problem_draft",
+			{ p_problem_id: id },
+		);
+
+		if (error) {
+			console.error("Problem draft deletion RPC failed:", error);
+			throw new Error("Unable to delete problem draft.");
+		}
+
+		return (data ?? []) as DeletedDraftStuff[];
+	}
 	async findById(id: number): Promise<Problem | null> {
 		const { data, error } = await supabaseAdmin
 			.from("problem")

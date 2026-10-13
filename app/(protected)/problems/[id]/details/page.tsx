@@ -8,6 +8,7 @@ import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Admin } from "@/domain/user/Admin";
 
 import PublishProblemButton from "./PublishProblemButton";
+import DeleteDraftButton from "./DeleteDraftButton";
 import ChangeProblemStatus from "./ChangeProblemStatus";
 
 type Props = {
@@ -84,7 +85,10 @@ export default async function ProblemDetailsPage({ params }: Props) {
 								</span>
 
 								{isDraft ? (
-									<PublishProblemButton problemId={problem.id} />
+									<>
+										<PublishProblemButton problemId={problem.id} />
+										<DeleteDraftButton problemId={problem.id} />
+									</>
 								) : (
 									<ChangeProblemStatus
 										problemId={problem.id}

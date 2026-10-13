@@ -32,9 +32,15 @@ type RequirementRow = {
 };
 
 type TestCaseRow = {
-	order: number;
-	input: string;
-	expected_output: string;
+    order: number;
+    test_case_id: number;
+    test_case: {
+        input: string;
+        expected_output: string;
+    } | {
+        input: string;
+        expected_output: string;
+    }[] | null;
 };
 
 type StuffRow = {
@@ -88,7 +94,14 @@ export class ProblemVersionRepository {
 
 			supabaseAdmin
 				.from("problem_version_test_case")
-				.select('"order", input, expected_output')
+				.select(`
+					"order",
+					test_case_id,
+					test_case (
+						input,
+						expected_output
+					)
+				`)
 				.eq("problem_id", problemId)
 				.eq("version_number", versionNumber)
 				.order("order", { ascending: true }),
@@ -128,13 +141,22 @@ export class ProblemVersionRepository {
 			requirementResult.data as RequirementRow[]
 		).map(item => item.requirement);
 
-		const testCases = (
-			testCaseResult.data as TestCaseRow[]
-		).map(item => new TestCase({
-			order: item.order,
-			input: item.input,
-			expectedOutput: item.expected_output,
-		}));
+		const testCaseRows = testCaseResult.data as TestCaseRow[];
+
+		const testCases = testCaseRows.map(item => {
+			const testCase = Array.isArray(item.test_case)
+				? item.test_case[0]
+				: item.test_case;
+
+			if (!testCase) {
+				throw new Error("Unable to load problem version test cases.");
+			}
+
+			return new TestCase(
+				testCase.input,
+				testCase.expected_output,
+			);
+		});
 
 		const stuffIds = (
 			stuffResult.data as StuffRow[]

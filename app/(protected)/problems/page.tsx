@@ -6,6 +6,8 @@ import styles from "./page.module.css";
 import { getCurrentUser } from "@/lib/auth";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { Admin } from "@/domain/user/Admin";
+import { Owner } from "@/domain/user/Owner";
+import GCButton from "@/components/GCButton";
 
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 
@@ -20,6 +22,7 @@ export default async function ProblemsPage() {
 
 	const draftProblems = items.filter(item => item.isDraft);
 	const publishedProblems = items.filter(item => !item.isDraft);
+	const isOwner = user instanceof Owner;
 
 	return (
 		<main className={styles.page}>
@@ -27,14 +30,18 @@ export default async function ProblemsPage() {
 				<header className={styles.header}>
 					<h1>Problems</h1>
 
-					{canCreateProblem && (
-						<Link
-							href="/problems/create"
-							className={styles.createButton}
-						>
-							+ Create Problem
-						</Link>
-					)}
+					<div className={styles.headerActions}>
+						{canCreateProblem && (
+							<Link
+								href="/problems/create"
+								className={styles.createButton}
+							>
+								+ Create Problem
+							</Link>
+						)}
+
+						{isOwner && <GCButton />}
+					</div>
 				</header>
 
 				<p className={styles.description}>

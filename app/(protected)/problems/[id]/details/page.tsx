@@ -190,12 +190,12 @@ export default async function ProblemDetailsPage({ params }: Props) {
 							<h2>Test Cases</h2>
 
 							<div className={styles.testCases}>
-								{version.testCases.map(testCase => (
+								{version.testCases.map((testCase, index) => (
 									<article
-										key={testCase.order}
+										key={index}
 										className={styles.testCase}
 									>
-										<h3>Test Case {testCase.order}</h3>
+										<h3>Test Case {index + 1}</h3>
 
 										<div className={styles.testCaseGrid}>
 											<div>

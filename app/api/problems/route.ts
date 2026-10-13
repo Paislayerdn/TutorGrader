@@ -250,11 +250,10 @@ export async function POST(request: Request) {
 			languageIds: [...new Set(languageIds as number[])],
 			requirements: requirements as string[],
 			testCases: rawTestCases.map((testCase, index) =>
-				new TestCase({
-					order: index + 1,
-					input: testCase.input as string,
-					expectedOutput: testCase.expectedOutput as string,
-				}),
+				new TestCase(
+					testCase.input as string,
+					testCase.expectedOutput as string,
+				)
 			),
 			stuffIds: stuffRecords.map(stuff => stuff.id),
 		});

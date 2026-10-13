@@ -19,7 +19,8 @@ export default async function ProblemsPage() {
 		if (canCreateProblem) return true;
 
 		return (
-			problem.status === ProblemStatus.ACTIVE &&
+			problem.status !== ProblemStatus.INACTIVE
+			&&
 			problem.currentVersionNumber !== null
 		);
 	});
@@ -71,9 +72,23 @@ export default async function ProblemsPage() {
 										<div className={styles.problemHeader}>
 											<h2>{version.name}</h2>
 
-											<span className={styles.version}>
-												Draft · Version {version.versionNumber}
-											</span>
+											<div className={styles.problemMeta}>
+												<span className={styles.version}>
+													Version {version.versionNumber}
+												</span>
+
+												<span
+													className={`${styles.status} ${
+														problem.status === ProblemStatus.ACTIVE
+															? styles.statusActive
+															: problem.status === ProblemStatus.FIXING
+																? styles.statusFixing
+																: styles.statusInactive
+													}`}
+												>
+													{problem.status}
+												</span>
+											</div>
 										</div>
 
 										<p className={styles.difficulty}>
@@ -111,9 +126,23 @@ export default async function ProblemsPage() {
 										<div className={styles.problemHeader}>
 											<h2>{version.name}</h2>
 
-											<span className={styles.version}>
-												Version {version.versionNumber}
-											</span>
+											<div className={styles.problemMeta}>
+												<span className={styles.version}>
+													Version {version.versionNumber}
+												</span>
+
+												<span
+													className={`${styles.status} ${
+														problem.status === ProblemStatus.ACTIVE
+															? styles.statusActive
+															: problem.status === ProblemStatus.FIXING
+																? styles.statusFixing
+																: styles.statusInactive
+													}`}
+												>
+													{problem.status}
+												</span>
+											</div>
 										</div>
 
 										<p className={styles.difficulty}>

@@ -39,7 +39,7 @@ export default async function ProblemDetailsPage({ params }: Props) {
 
 	if (!isAdmin) {
 		if (
-			problem.status !== ProblemStatus.ACTIVE ||
+			problem.status === ProblemStatus.INACTIVE ||
 			problem.currentVersionNumber === null
 		) {
 			redirect("/problems");
@@ -68,35 +68,37 @@ export default async function ProblemDetailsPage({ params }: Props) {
 							</p>
 						</div>
 
-						{isAdmin && (
-							<div className={styles.headerActions}>
-								<span
-									className={`${styles.status} ${
-										isDraft
-											? styles.statusDraft
-											: problem.status === ProblemStatus.ACTIVE
-												? styles.statusActive
-												: problem.status === ProblemStatus.FIXING
-													? styles.statusFixing
-													: styles.statusInactive
-									}`}
-								>
-									{isDraft ? "DRAFT" : problem.status}
-								</span>
+						<div className={styles.headerActions}>
+							<span
+								className={`${styles.status} ${
+									isDraft
+										? styles.statusDraft
+										: problem.status === ProblemStatus.ACTIVE
+											? styles.statusActive
+											: problem.status === ProblemStatus.FIXING
+												? styles.statusFixing
+												: styles.statusInactive
+								}`}
+							>
+								{isDraft ? "DRAFT" : problem.status}
+							</span>
 
-								{isDraft ? (
-									<>
-										<PublishProblemButton problemId={problem.id} />
-										<DeleteDraftButton problemId={problem.id} />
-									</>
-								) : (
-									<ChangeProblemStatus
-										problemId={problem.id}
-										currentStatus={problem.status}
-									/>
-								)}
-							</div>
-						)}
+							{isAdmin && (
+								<>
+									{isDraft ? (
+										<>
+											<PublishProblemButton problemId={problem.id} />
+											<DeleteDraftButton problemId={problem.id} />
+										</>
+									) : (
+										<ChangeProblemStatus
+											problemId={problem.id}
+											currentStatus={problem.status}
+										/>
+									)}
+								</>
+							)}
+						</div>
 					</header>
 
 					{version.difficulty && (

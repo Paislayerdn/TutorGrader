@@ -32,15 +32,15 @@ type RequirementRow = {
 };
 
 type TestCaseRow = {
-    order: number;
-    test_case_id: number;
-    test_case: {
-        input: string;
-        expected_output: string;
-    } | {
-        input: string;
-        expected_output: string;
-    }[] | null;
+	order: number;
+	test_case_id: number;
+	test_case: {
+		input: string;
+		expected_output: string;
+	} | {
+		input: string;
+		expected_output: string;
+	}[] | null;
 };
 
 type StuffRow = {

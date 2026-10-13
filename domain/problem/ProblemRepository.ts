@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 import { Problem } from "./Problem";
 import { ProblemStatus } from "./ProblemStatus";
+import { ProblemVersion } from "./version/ProblemVersion";
 import { ProblemVersionRepository } from "./version/ProblemVersionRepository";
 import { OutputComparison } from "./version/OutputComparison";
 import { TestCase } from "./TestCase";
@@ -116,6 +117,41 @@ export class ProblemRepository {
 			problemId: created.problem_id,
 			versionNumber: created.version_number,
 		};
+	}
+
+	async openDraftForEditing(problemId: number): Promise<ProblemVersion> {
+		const { data, error } = await supabaseAdmin.rpc(
+			"create_problem_edit_draft",
+			{
+				p_problem_id: problemId,
+			},
+		);
+
+		if (error) {
+			console.error("Problem edit draft RPC failed:", error);
+			throw new Error("Unable to open the problem draft.");
+		}
+
+		const result = data?.[0];
+
+		if (
+			!result ||
+			Number(result.problem_id) !== problemId ||
+			typeof result.version_number !== "number"
+		) {
+			throw new Error("Problem edit draft RPC returned invalid data.");
+		}
+
+		const draft = await this.problemVersionRepository.findProblemVersion(
+			problemId,
+			result.version_number,
+		);
+
+		if (!draft || draft.status !== "DRAFT") {
+			throw new Error("Unable to load the problem draft.");
+		}
+
+		return draft;
 	}
 
 	async deleteDraft(id: number): Promise<DeletedDraftStuff[]> {

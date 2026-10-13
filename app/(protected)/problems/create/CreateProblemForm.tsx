@@ -21,33 +21,81 @@ type AttachmentInput = {
 	file: File;
 };
 
+type ExistingAttachment = {
+	id: string;
+	filename: string;
+};
+
 type RequirementInput = {
 	id: number;
 	value: string;
 };
 
-type Props = {
-	languages: LanguageOption[];
+type InitialData = {
+	problemId: number;
+	versionNumber: number;
+	name: string;
+	description: string;
+	difficulty: string;
+	timeLimitMs: number;
+	memoryLimitKb: number;
+	outputComparison: string;
+	requirements: string[];
+	languageIds: number[];
+	testCases: TestCaseInput[];
+	attachments: ExistingAttachment[];
 };
 
-export default function CreateProblemForm({ languages }: Props) {
+type Props = {
+	languages: LanguageOption[];
+	initialData?: InitialData;
+};
+
+export default function CreateProblemForm({
+	languages,
+	initialData,
+}: Props) {
 	const router = useRouter();
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [difficulty, setDifficulty] = useState("");
-	const [timeLimitMs, setTimeLimitMs] = useState("1000");
-	const [memoryLimitKb, setMemoryLimitKb] = useState("262144");
-	const [outputComparison, setOutputComparison] = useState("TRIM");
 
-	const [requirements, setRequirements] = useState<RequirementInput[]>([]);
-	const [selectedLanguages, setSelectedLanguages] = useState<number[]>([]);
+	const [name, setName] = useState(initialData?.name ?? "");
+	const [description, setDescription] = useState(
+		initialData?.description ?? "",
+	);
+	const [difficulty, setDifficulty] = useState(
+		initialData?.difficulty ?? "",
+	);
+	const [timeLimitMs, setTimeLimitMs] = useState(
+		String(initialData?.timeLimitMs ?? 1000),
+	);
+	const [memoryLimitKb, setMemoryLimitKb] = useState(
+		String(initialData?.memoryLimitKb ?? 262144),
+	);
+	const [outputComparison, setOutputComparison] = useState(
+		initialData?.outputComparison ?? "TRIM",
+	);
+
+	const [requirements, setRequirements] = useState<RequirementInput[]>(
+		(initialData?.requirements ?? []).map((value, index) => ({
+			id: index + 1,
+			value,
+		})),
+	);
+	const [selectedLanguages, setSelectedLanguages] = useState<number[]>(
+		initialData?.languageIds ?? [],
+	);
 	const [languageToAdd, setLanguageToAdd] = useState("");
 
 	const [attachments, setAttachments] = useState<AttachmentInput[]>([]);
-	const [testCases, setTestCases] = useState<TestCaseInput[]>([
-		{ input: "", expectedOutput: "" },
-	]);
+	const [existingAttachments, setExistingAttachments] = useState<
+		ExistingAttachment[]
+	>(initialData?.attachments ?? []);
+
+	const [testCases, setTestCases] = useState<TestCaseInput[]>(
+		initialData?.testCases.length
+			? initialData.testCases
+			: [{ input: "", expectedOutput: "" }],
+	);
 
 	const [error, setError] = useState("");
 	const [message, setMessage] = useState("");
@@ -155,6 +203,11 @@ export default function CreateProblemForm({ languages }: Props) {
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		const submitter = (event.nativeEvent as SubmitEvent).submitter;
+		const shouldPublish =
+			submitter instanceof HTMLButtonElement &&
+			submitter.name === "intent" &&
+			submitter.value === "publish";
 		setError("");
 		setMessage("");
 
@@ -192,6 +245,14 @@ export default function CreateProblemForm({ languages }: Props) {
 			formData.append(
 				"payload",
 				JSON.stringify({
+					...(initialData
+						? {
+								versionNumber: initialData.versionNumber,
+								existingStuffIds: existingAttachments.map(
+									(attachment) => attachment.id,
+								),
+							}
+						: {}),
 					name: trimmedName,
 					description: description.trim() || null,
 					difficulty: difficulty.trim() || null,
@@ -210,10 +271,15 @@ export default function CreateProblemForm({ languages }: Props) {
 				formData.append("files", attachment.file);
 			}
 
-			const response = await fetch("/api/problems", {
-				method: "POST",
-				body: formData,
-			});
+			const response = await fetch(
+				initialData
+					? `/api/problems/${initialData.problemId}/draft`
+					: "/api/problems",
+				{
+					method: initialData ? "PUT" : "POST",
+					body: formData,
+				},
+			);
 
 			const result: unknown = await response.json();
 
@@ -229,7 +295,35 @@ export default function CreateProblemForm({ languages }: Props) {
 				throw new Error(serverError);
 			}
 
-			router.push("/problems");
+			if (shouldPublish && initialData) {
+				const publishResponse = await fetch(
+					`/api/problems/${initialData.problemId}/publish`,
+					{
+						method: "POST",
+					},
+				);
+
+				const publishResult: unknown = await publishResponse.json();
+
+				if (!publishResponse.ok) {
+					const publishError =
+						typeof publishResult === "object" &&
+						publishResult !== null &&
+						"error" in publishResult &&
+						typeof publishResult.error === "string"
+							? publishResult.error
+							: "The draft was saved, but publishing failed.";
+
+					throw new Error(publishError);
+				}
+			}
+
+			if (initialData) {
+				router.push(`/problems/${initialData.problemId}/details`);
+			} else {
+				router.push("/problems");
+			}
+
 			router.refresh();
 		} catch (error) {
 			setError(
@@ -345,6 +439,31 @@ export default function CreateProblemForm({ languages }: Props) {
 						/>
 					</label>
 
+					{existingAttachments.length > 0 && (
+						<ul className={styles.itemList}>
+							{existingAttachments.map((attachment) => (
+								<li key={attachment.id} className={styles.item}>
+									<a href={`/api/stuff/${attachment.id}/download`}>
+										{attachment.filename}
+									</a>
+									<button
+										type="button"
+										className={styles.removeButton}
+										onClick={() =>
+											setExistingAttachments((current) =>
+												current.filter(
+													(item) => item.id !== attachment.id,
+												),
+											)
+										}
+									>
+										Remove
+									</button>
+								</li>
+							))}
+						</ul>
+					)}
+					
 					{attachments.length > 0 && (
 						<ul className={styles.itemList}>
 							{attachments.map((attachment) => (
@@ -527,13 +646,29 @@ export default function CreateProblemForm({ languages }: Props) {
 			{error && <p className={styles.error}>{error}</p>}
 			{message && <p className={styles.message}>{message}</p>}
 
-			<button
-				type="submit"
-				className={styles.primaryButton}
-				disabled={isSubmitting}
-			>
-				{isSubmitting ? "Saving Draft..." : "Save Draft"}
-			</button>
+			<div className={styles.formActions}>
+				<button
+					type="submit"
+					name="intent"
+					value="save"
+					className={styles.secondaryButton}
+					disabled={isSubmitting}
+				>
+					{isSubmitting ? "Saving..." : "Save Draft"}
+				</button>
+
+				{initialData && (
+					<button
+						type="submit"
+						name="intent"
+						value="publish"
+						className={styles.primaryButton}
+						disabled={isSubmitting}
+					>
+						{isSubmitting ? "Publishing..." : "Publish"}
+					</button>
+				)}
+			</div>
 		</form>
 	);
 }

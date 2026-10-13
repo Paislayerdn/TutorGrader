@@ -49,9 +49,9 @@ export async function DELETE(request: Request, { params }: Props) {
 		);
 	}
 
-	if (problem.currentVersionNumber !== null) {
+	if (problem.currentDraftNumber === null) {
 		return NextResponse.json(
-			{ error: "Only unpublished drafts can be deleted." },
+			{ error: "This problem has no draft to delete." },
 			{ status: 400 },
 		);
 	}

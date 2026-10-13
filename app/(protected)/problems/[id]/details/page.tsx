@@ -75,16 +75,29 @@ export default async function ProblemDetailsPage({ params }: Props) {
 							/>
 
 							{isAdmin && (
+								<a
+									href={`/problems/${problem.id}/edit`}
+									className={styles.editButton}
+								>
+									Edit Problem
+								</a>
+							)}
+							
+							{isAdmin && (
 								<>
 									{isDraft ? (
-										<>
-											<PublishProblemButton problemId={problem.id} />
-											<DeleteDraftButton problemId={problem.id} />
-										</>
+										<PublishProblemButton problemId={problem.id} />
 									) : (
 										<ChangeProblemStatus
 											problemId={problem.id}
 											currentStatus={problem.status}
+										/>
+									)}
+
+									{problem.currentDraftNumber !== null && (
+										<DeleteDraftButton
+											problemId={problem.id}
+											isPublished={!isDraft}
 										/>
 									)}
 								</>

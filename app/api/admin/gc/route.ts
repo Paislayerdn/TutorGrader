@@ -47,7 +47,7 @@ export async function POST() {
 			},
 		);
 
-		const result: unknown = await response.json().catch(() => ({
+		const result: unknown = await response.json().catch (() => ({
 			error: "The garbage collector returned an invalid response.",
 		}));
 

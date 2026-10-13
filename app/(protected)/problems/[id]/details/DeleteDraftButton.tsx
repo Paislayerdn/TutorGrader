@@ -7,9 +7,13 @@ import styles from "./page.module.css";
 
 type Props = {
 	problemId: number;
+	isPublished: boolean;
 };
 
-export default function DeleteDraftButton({ problemId }: Props) {
+export default function DeleteDraftButton({
+	problemId,
+	isPublished,
+}: Props) {
 	const router = useRouter();
 
 	const [isDeleting, setIsDeleting] = useState(false);
@@ -55,7 +59,12 @@ export default function DeleteDraftButton({ problemId }: Props) {
 				throw new Error(message);
 			}
 
-			router.push("/problems");
+			router.push(
+				isPublished
+					? `/problems/${problemId}/details`
+					: "/problems",
+			);
+			router.refresh();
 		} catch (error) {
 			setError(
 				error instanceof Error
@@ -97,13 +106,12 @@ export default function DeleteDraftButton({ problemId }: Props) {
 						<h2>Delete draft?</h2>
 
 						<p>
-							This will permanently delete this problem,
-							its data, and all attached files.
+							{isPublished
+								? "This will permanently delete the unpublished changes. The currently published version will remain unchanged."
+								: "This will permanently delete this problem, its draft, and its attached files."}
 						</p>
 
-						<p>
-							This action cannot be undone.
-						</p>
+						<p>This action cannot be undone.</p>
 
 						<div className={styles.modalActions}>
 							<button

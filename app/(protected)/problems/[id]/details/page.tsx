@@ -7,6 +7,7 @@ import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Admin } from "@/domain/user/Admin";
 
+import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 import PublishProblemButton from "./PublishProblemButton";
 import DeleteDraftButton from "./DeleteDraftButton";
 import ChangeProblemStatus from "./ChangeProblemStatus";
@@ -69,19 +70,9 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						</div>
 
 						<div className={styles.headerActions}>
-							<span
-								className={`${styles.status} ${
-									isDraft
-										? styles.statusDraft
-										: problem.status === ProblemStatus.ACTIVE
-											? styles.statusActive
-											: problem.status === ProblemStatus.FIXING
-												? styles.statusFixing
-												: styles.statusInactive
-								}`}
-							>
-								{isDraft ? "DRAFT" : problem.status}
-							</span>
+							<ProblemStatusBadge
+								status={isDraft ? "DRAFT" : problem.status}
+							/>
 
 							{isAdmin && (
 								<>

@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
-import { Admin } from "@/domain/user/Admin";
-import { Owner } from "@/domain/user/Owner";
 import styles from "./page.module.css";
 
 export default async function DashboardPage() {
@@ -10,8 +8,6 @@ export default async function DashboardPage() {
 
 	if (!user) redirect("/login?error=unauthorized");
 
-	let role = user.role;
-	
 	return (
 		<main className={styles.page}>
 			<section className={styles.content}>
@@ -25,7 +21,7 @@ export default async function DashboardPage() {
 
 					<div>
 						<span>Role</span>
-						<strong>{role}</strong>
+						<strong>{user.role}</strong>
 					</div>
 				</div>
 			</section>

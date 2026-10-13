@@ -35,6 +35,35 @@ type ProblemRow = {
 	created_by: string;
 };
 
+export type ProblemListItem = {
+	id: number;
+	status: ProblemStatus;
+	versionNumber: number;
+	name: string;
+	difficulty: string | null;
+	isDraft: boolean;
+};
+
+type ProblemListViewRow = {
+	id: number;
+	status: ProblemStatus;
+	current_version_number: number;
+	name: string;
+	difficulty: string | null;
+};
+
+type DraftListRow = {
+	id: number;
+	current_draft_number: number;
+};
+
+type DraftVersionListRow = {
+	problem_id: number;
+	version_number: number;
+	name: string;
+	difficulty: string | null;
+};
+
 export class ProblemRepository {
 	private static readonly PROBLEM_COLUMNS =
 		"id, status, current_version_number, current_draft_number, created_at, updated_at, created_by";
@@ -102,6 +131,127 @@ export class ProblemRepository {
 
 		return (data ?? []) as DeletedDraftStuff[];
 	}
+
+	
+	async findAllForListing(
+		canViewInactive: boolean,
+	): Promise<ProblemListItem[]> {
+		const { data: activeRows, error: activeError } =
+			await supabaseAdmin
+				.from("problem_list_view")
+				.select(
+					"id, status, current_version_number, name, difficulty",
+				)
+				.in("status", ["ACTIVE", "FIXING"])
+				.order("id", { ascending: true });
+
+		if (activeError) {
+			console.error("Active problem list lookup error:", activeError);
+			throw new Error("Unable to load problems.");
+		}
+
+		const publishedRows = [
+			...((activeRows ?? []) as ProblemListViewRow[]),
+		];
+
+		if (canViewInactive) {
+			const { data: inactiveRows, error: inactiveError } =
+				await supabaseAdmin
+					.from("problem_list_view")
+					.select(
+						"id, status, current_version_number, name, difficulty",
+					)
+					.eq("status", "INACTIVE")
+					.order("id", { ascending: true });
+
+			if (inactiveError) {
+				console.error(
+					"Inactive problem list lookup error:",
+					inactiveError,
+				);
+				throw new Error("Unable to load inactive problems.");
+			}
+
+			publishedRows.push(
+				...((inactiveRows ?? []) as ProblemListViewRow[]),
+			);
+		}
+
+		const items: ProblemListItem[] = publishedRows.map(row => ({
+			id: row.id,
+			status: row.status,
+			versionNumber: row.current_version_number,
+			name: row.name,
+			difficulty: row.difficulty,
+			isDraft: false,
+		}));
+
+		if (!canViewInactive) {
+			return items.sort((a, b) => a.id - b.id);
+		}
+
+		// Draft-only problems are fetched separately; their versions
+		// are loaded in one query instead of fully hydrating each Problem.
+		const { data: draftProblems, error: draftError } =
+			await supabaseAdmin
+				.from("problem")
+				.select("id, current_draft_number")
+				.is("current_version_number", null)
+				.not("current_draft_number", "is", null);
+
+		if (draftError) {
+			console.error("Draft problem list lookup error:", draftError);
+			throw new Error("Unable to load draft problems.");
+		}
+
+		const drafts = (draftProblems ?? []) as DraftListRow[];
+
+		if (drafts.length === 0) {
+			return items.sort((a, b) => a.id - b.id);
+		}
+
+		const { data: draftVersions, error: versionError } =
+			await supabaseAdmin
+				.from("problem_version")
+				.select(
+					"problem_id, version_number, name, difficulty",
+				)
+				.in("problem_id", drafts.map(draft => draft.id))
+				.eq("status", "DRAFT");
+
+		if (versionError) {
+			console.error("Draft version list lookup error:", versionError);
+			throw new Error("Unable to load draft summaries.");
+		}
+
+		const versions = (draftVersions ?? []) as DraftVersionListRow[];
+		const draftVersionByProblem = new Map(
+			versions.map(version => [
+				`${version.problem_id}:${version.version_number}`,
+				version,
+			]),
+		);
+
+		for (const draft of drafts) {
+			const version = draftVersionByProblem.get(
+				`${draft.id}:${draft.current_draft_number}`,
+			);
+
+			if (!version) continue;
+
+			items.push({
+				id: draft.id,
+				status: ProblemStatus.INACTIVE,
+				versionNumber: version.version_number,
+				name: version.name,
+				difficulty: version.difficulty,
+				isDraft: true,
+			});
+		}
+
+		return items.sort((a, b) => a.id - b.id);
+	}
+
 	async findById(id: number): Promise<Problem | null> {
 		const { data, error } = await supabaseAdmin
 			.from("problem")

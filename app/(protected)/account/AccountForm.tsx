@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import styles from "./page.module.css";
 
@@ -17,6 +18,8 @@ export default function AccountForm({
 	createdAt,
 	createdBy,
 }: AccountFormProps) {
+	const router = useRouter();
+
 	const [currentUsername, setCurrentUsername] = useState(username);
 	const [editingUsername, setEditingUsername] = useState(false);
 	const [newUsername, setNewUsername] = useState(username);
@@ -75,49 +78,49 @@ export default function AccountForm({
 	}
 
 	async function handlePasswordChange() {
-			setError("");
+		setError("");
 
-			if (newPassword !== confirmPassword) {
-				setError("New passwords do not match.");
+		if (newPassword !== confirmPassword) {
+			setError("New passwords do not match.");
+			return;
+		}
+
+		setLoading(true);
+
+		try {
+			const response = await fetch("/api/account", {
+				method: "PATCH",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					action: "password",
+					currentPassword,
+					newPassword,
+				}),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				setError(data.error ?? "Unable to change password.");
 				return;
 			}
 
-			setLoading(true);
+			setCurrentPassword("");
+			setNewPassword("");
+			setConfirmPassword("");
+			setEditingPassword(false);
 
-			try {
-				const response = await fetch("/api/account", {
-					method: "PATCH",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						action: "password",
-						currentPassword,
-						newPassword,
-					}),
-				});
-
-				const data = await response.json();
-
-				if (!response.ok) {
-					setError(data.error ?? "Unable to change password.");
-					return;
-				}
-
-				setCurrentPassword("");
-				setNewPassword("");
-				setConfirmPassword("");
-				setEditingPassword(false);
-
-				showSuccess("Successfully changed password.");
-			} catch {
-				setError("Unable to connect to TutorGrader.");
-			} finally {
-				setLoading(false);
-			}
+			showSuccess("Successfully changed password.");
+		} catch {
+			setError("Unable to connect to TutorGrader.");
+		} finally {
+			setLoading(false);
 		}
+	}
 
-		async function handleDeactivate() {
+	async function handleDeactivate() {
 		setError("");
 		setLoading(true);
 
@@ -139,7 +142,8 @@ export default function AccountForm({
 				return;
 			}
 
-			window.location.href = "/login";
+			router.replace("/login");
+			router.refresh();
 		} catch {
 			setError("Unable to connect to TutorGrader.");
 		} finally {
@@ -225,7 +229,7 @@ export default function AccountForm({
 								readOnly
 							/>
 						</div>
-						
+
 						<div className={styles.field}>
 							<span>Created at</span>
 

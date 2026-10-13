@@ -53,22 +53,24 @@ export default function CreateProblemForm({ languages }: Props) {
 	const [message, setMessage] = useState("");
 
 	function addRequirement() {
-		setRequirements(current => [
+		setRequirements((current) => [
 			...current,
 			{ id: Date.now() + Math.random(), value: "" },
 		]);
 	}
 
 	function updateRequirement(id: number, value: string) {
-		setRequirements(current =>
-			current.map(item =>
+		setRequirements((current) =>
+			current.map((item) =>
 				item.id === id ? { ...item, value } : item,
 			),
 		);
 	}
 
 	function removeRequirement(id: number) {
-		setRequirements(current => current.filter(item => item.id !== id));
+		setRequirements((current) =>
+			current.filter((item) => item.id !== id),
+		);
 	}
 
 	function addLanguage() {
@@ -76,13 +78,13 @@ export default function CreateProblemForm({ languages }: Props) {
 
 		if (!id || selectedLanguages.includes(id)) return;
 
-		setSelectedLanguages(current => [...current, id]);
+		setSelectedLanguages((current) => [...current, id]);
 		setLanguageToAdd("");
 	}
 
 	function removeLanguage(id: number) {
-		setSelectedLanguages(current =>
-			current.filter(languageId => languageId !== id),
+		setSelectedLanguages((current) =>
+			current.filter((languageId) => languageId !== id),
 		);
 	}
 
@@ -107,21 +109,25 @@ export default function CreateProblemForm({ languages }: Props) {
 			});
 		}
 
-		setAttachments(current => [...current, ...accepted]);
+		setAttachments((current) => [...current, ...accepted]);
 
 		if (rejected.length > 0) {
-			setError(`Only PDF and image files are accepted. Rejected: ${rejected.join(", ")}`,);
+			setError(
+				`Only PDF and image files are accepted. Rejected: ${rejected.join(", ")}`,
+			);
 		} else {
 			setError("");
 		}
 	}
 
 	function removeAttachment(id: string) {
-		setAttachments(current => current.filter(item => item.id !== id));
+		setAttachments((current) =>
+			current.filter((item) => item.id !== id),
+		);
 	}
 
 	function addTestCase() {
-		setTestCases(current => [
+		setTestCases((current) => [
 			...current,
 			{ input: "", expectedOutput: "" },
 		]);
@@ -132,7 +138,7 @@ export default function CreateProblemForm({ languages }: Props) {
 		field: keyof TestCaseInput,
 		value: string,
 	) {
-		setTestCases(current =>
+		setTestCases((current) =>
 			current.map((testCase, i) =>
 				i === index ? { ...testCase, [field]: value } : testCase,
 			),
@@ -142,7 +148,7 @@ export default function CreateProblemForm({ languages }: Props) {
 	function removeTestCase(index: number) {
 		if (index === 0) return;
 
-		setTestCases(current =>
+		setTestCases((current) =>
 			current.filter((_, i) => i !== index),
 		);
 	}
@@ -183,19 +189,22 @@ export default function CreateProblemForm({ languages }: Props) {
 		try {
 			const formData = new FormData();
 
-			formData.append("payload", JSON.stringify({
-				name: trimmedName,
-				description: description.trim() || null,
-				difficulty: difficulty.trim() || null,
-				timeLimitMs: Number(timeLimitMs),
-				memoryLimitKb: Number(memoryLimitKb),
-				outputComparison,
-				languageIds: selectedLanguages,
-				requirements: requirements
-					.map(requirement => requirement.value.trim())
-					.filter(Boolean),
-				testCases,
-			}));
+			formData.append(
+				"payload",
+				JSON.stringify({
+					name: trimmedName,
+					description: description.trim() || null,
+					difficulty: difficulty.trim() || null,
+					timeLimitMs: Number(timeLimitMs),
+					memoryLimitKb: Number(memoryLimitKb),
+					outputComparison,
+					languageIds: selectedLanguages,
+					requirements: requirements
+						.map((requirement) => requirement.value.trim())
+						.filter(Boolean),
+					testCases,
+				}),
+			);
 
 			for (const attachment of attachments) {
 				formData.append("files", attachment.file);
@@ -244,7 +253,7 @@ export default function CreateProblemForm({ languages }: Props) {
 						<input
 							required
 							value={name}
-							onChange={event => setName(event.target.value)}
+							onChange={(event) => setName(event.target.value)}
 							placeholder="e.g. Sum of Two Numbers"
 						/>
 					</label>
@@ -254,7 +263,7 @@ export default function CreateProblemForm({ languages }: Props) {
 						<textarea
 							rows={7}
 							value={description}
-							onChange={event => setDescription(event.target.value)}
+							onChange={(event) => setDescription(event.target.value)}
 							placeholder="Describe the problem..."
 						/>
 					</label>
@@ -264,7 +273,7 @@ export default function CreateProblemForm({ languages }: Props) {
 							<span>Difficulty</span>
 							<input
 								value={difficulty}
-								onChange={event => setDifficulty(event.target.value)}
+								onChange={(event) => setDifficulty(event.target.value)}
 								placeholder="e.g. Easy"
 							/>
 						</label>
@@ -276,11 +285,11 @@ export default function CreateProblemForm({ languages }: Props) {
 								min="0"
 								required
 								value={timeLimitMs}
-								onChange={event => setTimeLimitMs(event.target.value)}
+								onChange={(event) => setTimeLimitMs(event.target.value)}
 							/>
 							<p className={styles.hint}>
-								0 means unlimited time. The execution provider may still impose
-								its own timeout.
+								0 means unlimited time. The execution provider may still
+								impose its own timeout.
 							</p>
 						</label>
 
@@ -291,11 +300,11 @@ export default function CreateProblemForm({ languages }: Props) {
 								min="0"
 								required
 								value={memoryLimitKb}
-								onChange={event => setMemoryLimitKb(event.target.value)}
+								onChange={(event) => setMemoryLimitKb(event.target.value)}
 							/>
 							<p className={styles.hint}>
-								0 means unlimited memory. The execution provider
-								may still impose its own memory limit.
+								0 means unlimited memory. The execution provider may still
+								impose its own memory limit.
 							</p>
 						</label>
 
@@ -303,7 +312,9 @@ export default function CreateProblemForm({ languages }: Props) {
 							<span>Output comparison</span>
 							<select
 								value={outputComparison}
-								onChange={event => setOutputComparison(event.target.value)}
+								onChange={(event) =>
+									setOutputComparison(event.target.value)
+								}
 							>
 								<option value="EXACT">Exact</option>
 								<option value="TRIM">Trim whitespace</option>
@@ -316,8 +327,8 @@ export default function CreateProblemForm({ languages }: Props) {
 				<section className={styles.section}>
 					<h2>Attachments</h2>
 					<p className={styles.hint}>
-						Add PDF documents or images. Files are uploaded when you save the draft.
-						Combined file size limit: 4 MiB.
+						Add PDF documents or images. Files are uploaded when you save
+						the draft. Combined file size limit: 4 MiB.
 					</p>
 
 					<label className={styles.addButton}>
@@ -327,7 +338,7 @@ export default function CreateProblemForm({ languages }: Props) {
 							accept=".pdf,image/*"
 							multiple
 							className={styles.hiddenInput}
-							onChange={event => {
+							onChange={(event) => {
 								addAttachments(event.target.files);
 								event.target.value = "";
 							}}
@@ -336,7 +347,7 @@ export default function CreateProblemForm({ languages }: Props) {
 
 					{attachments.length > 0 && (
 						<ul className={styles.itemList}>
-							{attachments.map(attachment => (
+							{attachments.map((attachment) => (
 								<li key={attachment.id} className={styles.item}>
 									<span>{attachment.file.name}</span>
 									<button
@@ -373,7 +384,7 @@ export default function CreateProblemForm({ languages }: Props) {
 							<input
 								aria-label={`Requirement ${index + 1}`}
 								value={requirement.value}
-								onChange={event =>
+								onChange={(event) =>
 									updateRequirement(requirement.id, event.target.value)
 								}
 								placeholder={`Requirement ${index + 1}`}
@@ -394,8 +405,8 @@ export default function CreateProblemForm({ languages }: Props) {
 
 					{selectedLanguages.length > 0 && (
 						<ul className={styles.itemList}>
-							{selectedLanguages.map(id => {
-								const language = languages.find(item => item.id === id);
+							{selectedLanguages.map((id) => {
+								const language = languages.find((item) => item.id === id);
 								if (!language) return null;
 
 								return (
@@ -426,12 +437,14 @@ export default function CreateProblemForm({ languages }: Props) {
 						<select
 							aria-label="Language to add"
 							value={languageToAdd}
-							onChange={event => setLanguageToAdd(event.target.value)}
+							onChange={(event) => setLanguageToAdd(event.target.value)}
 						>
 							<option value="">Choose a language...</option>
 							{languages
-								.filter(language => !selectedLanguages.includes(language.id))
-								.map(language => (
+								.filter(
+									(language) => !selectedLanguages.includes(language.id),
+								)
+								.map((language) => (
 									<option key={language.id} value={language.id}>
 										{language.name}
 									</option>
@@ -463,7 +476,19 @@ export default function CreateProblemForm({ languages }: Props) {
 
 					{testCases.map((testCase, index) => (
 						<article key={index} className={styles.testCase}>
-							<h3>Test Case {index + 1}</h3>
+							<div className={styles.sectionHeader}>
+								<h3>Test Case {index + 1}</h3>
+
+								{index > 0 && (
+									<button
+										type="button"
+										className={styles.removeButton}
+										onClick={() => removeTestCase(index)}
+									>
+										Remove test case
+									</button>
+								)}
+							</div>
 
 							<div className={styles.testCaseGrid}>
 								<label className={styles.field}>
@@ -471,7 +496,7 @@ export default function CreateProblemForm({ languages }: Props) {
 									<textarea
 										rows={4}
 										value={testCase.input}
-										onChange={event =>
+										onChange={(event) =>
 											updateTestCase(index, "input", event.target.value)
 										}
 										placeholder="Test case input..."
@@ -483,7 +508,7 @@ export default function CreateProblemForm({ languages }: Props) {
 									<textarea
 										rows={4}
 										value={testCase.expectedOutput}
-										onChange={event =>
+										onChange={(event) =>
 											updateTestCase(
 												index,
 												"expectedOutput",
@@ -498,7 +523,7 @@ export default function CreateProblemForm({ languages }: Props) {
 					))}
 				</section>
 			</div>
-			
+
 			{error && <p className={styles.error}>{error}</p>}
 			{message && <p className={styles.message}>{message}</p>}
 
@@ -509,7 +534,6 @@ export default function CreateProblemForm({ languages }: Props) {
 			>
 				{isSubmitting ? "Saving Draft..." : "Save Draft"}
 			</button>
-			
 		</form>
 	);
 }

@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import styles from "./Navbar.module.css";
 
 export default function ThemeToggle() {
-	const [dark, setDark] = useState(false);
-
 	useEffect(() => {
 		const savedTheme =
 			document.cookie
@@ -14,27 +12,22 @@ export default function ThemeToggle() {
 				?.split("=")[1]
 			?? localStorage.getItem("theme");
 
-		const isDark = savedTheme === "dark";
+		const theme = savedTheme === "dark" ? "dark" : "light";
 
-		document.documentElement.dataset.theme = isDark
-			? "dark"
-			: "light";
-
-		setDark(isDark);
+		document.documentElement.dataset.theme = theme;
 
 		// Migrate the old localStorage preference to a cookie.
-		document.cookie = `theme=${isDark ? "dark" : "light"}; Path=/; Max-Age=31536000; SameSite=Lax`;
+		document.cookie = `theme=${theme}; Path=/; Max-Age=31536000; SameSite=Lax`;
 	}, []);
 
 	function toggleTheme() {
-		const nextDark = !dark;
-		const theme = nextDark ? "dark" : "light";
+		const root = document.documentElement;
+		const nextTheme =
+			root.dataset.theme === "dark" ? "light" : "dark";
 
-		document.documentElement.dataset.theme = theme;
-		localStorage.setItem("theme", theme);
-		document.cookie = `theme=${theme}; Path=/; Max-Age=31536000; SameSite=Lax`;
-
-		setDark(nextDark);
+		root.dataset.theme = nextTheme;
+		localStorage.setItem("theme", nextTheme);
+		document.cookie = `theme=${nextTheme}; Path=/; Max-Age=31536000; SameSite=Lax`;
 	}
 
 	return (
@@ -42,10 +35,11 @@ export default function ThemeToggle() {
 			type="button"
 			className={styles.themeToggle}
 			onClick={toggleTheme}
-			aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-			title={dark ? "Switch to light mode" : "Switch to dark mode"}
+			aria-label="Toggle color theme"
+			title="Toggle color theme"
 		>
-			{dark ? "☀" : "☾"}
+			<span className={styles.lightIcon}>☾</span>
+			<span className={styles.darkIcon}>☀</span>
 		</button>
 	);
 }

@@ -85,3 +85,16 @@
 .themeToggle:hover {
 	background: rgb(255 255 255 / 0.14);
 }
+
+.lightIcon,
+.darkIcon {
+	display: none;
+}
+
+:global(html:not([data-theme="dark"])) .lightIcon {
+	display: inline;
+}
+
+:global(html[data-theme="dark"]) .darkIcon {
+	display: inline;
+}

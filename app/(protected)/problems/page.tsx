@@ -1,37 +1,25 @@
+
 import Link from "next/link";
 
 import styles from "./page.module.css";
 
 import { getCurrentUser } from "@/lib/auth";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
-import { ProblemStatus } from "@/domain/problem/ProblemStatus";
-
 import { Admin } from "@/domain/user/Admin";
+
+import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 
 export default async function ProblemsPage() {
 	const user = await getCurrentUser();
 	const canCreateProblem = user instanceof Admin;
 
 	const problemRepository = new ProblemRepository();
-	const problems = await problemRepository.findAll();
-
-	const visibleProblems = problems.filter(problem => {
-		if (canCreateProblem) return true;
-
-		return (
-			problem.status !== ProblemStatus.INACTIVE
-			&&
-			problem.currentVersionNumber !== null
-		);
-	});
-
-	const publishedProblems = visibleProblems.filter(
-		problem => problem.currentVersionNumber !== null,
+	const items = await problemRepository.findAllForListing(
+		canCreateProblem,
 	);
 
-	const draftProblems = visibleProblems.filter(
-		problem => problem.currentVersionNumber === null,
-	);
+	const draftProblems = items.filter(item => item.isDraft);
+	const publishedProblems = items.filter(item => !item.isDraft);
 
 	return (
 		<main className={styles.page}>
@@ -58,45 +46,29 @@ export default async function ProblemsPage() {
 						<h2>Drafts</h2>
 
 						<div className={styles.list}>
-							{draftProblems.map(problem => {
-								const version = problem.versions[0];
+							{draftProblems.map(problem => (
+								<Link
+									key={problem.id}
+									href={`/problems/${problem.id}/details`}
+									className={styles.problem}
+								>
+									<div className={styles.problemHeader}>
+										<h2>{problem.name}</h2>
 
-								if (!version) return null;
+										<div className={styles.problemMeta}>
+											<span className={styles.version}>
+												Draft · Version {problem.versionNumber}
+											</span>
 
-								return (
-									<Link
-										key={problem.id}
-										href={`/problems/${problem.id}/details`}
-										className={styles.problem}
-									>
-										<div className={styles.problemHeader}>
-											<h2>{version.name}</h2>
-
-											<div className={styles.problemMeta}>
-												<span className={styles.version}>
-													Version {version.versionNumber}
-												</span>
-
-												<span
-													className={`${styles.status} ${
-														problem.status === ProblemStatus.ACTIVE
-															? styles.statusActive
-															: problem.status === ProblemStatus.FIXING
-																? styles.statusFixing
-																: styles.statusInactive
-													}`}
-												>
-													{problem.status}
-												</span>
-											</div>
+											<ProblemStatusBadge status="DRAFT" />
 										</div>
+									</div>
 
-										<p className={styles.difficulty}>
-											{version.difficulty ?? "Unspecified difficulty"}
-										</p>
-									</Link>
-								);
-							})}
+									<p className={styles.difficulty}>
+										{problem.difficulty ?? "Unspecified difficulty"}
+									</p>
+								</Link>
+							))}
 						</div>
 					</section>
 				)}
@@ -110,47 +82,31 @@ export default async function ProblemsPage() {
 						</p>
 					) : (
 						<div className={styles.list}>
-							{publishedProblems.map(problem => {
-								const version = problem.getVersion(
-									problem.currentVersionNumber!,
-								);
+							{publishedProblems.map(problem => (
+								<Link
+									key={problem.id}
+									href={`/problems/${problem.id}/details`}
+									className={styles.problem}
+								>
+									<div className={styles.problemHeader}>
+										<h2>{problem.name}</h2>
 
-								if (!version) return null;
+										<div className={styles.problemMeta}>
+											<span className={styles.version}>
+												Version {problem.versionNumber}
+											</span>
 
-								return (
-									<Link
-										key={problem.id}
-										href={`/problems/${problem.id}/details`}
-										className={styles.problem}
-									>
-										<div className={styles.problemHeader}>
-											<h2>{version.name}</h2>
-
-											<div className={styles.problemMeta}>
-												<span className={styles.version}>
-													Version {version.versionNumber}
-												</span>
-
-												<span
-													className={`${styles.status} ${
-														problem.status === ProblemStatus.ACTIVE
-															? styles.statusActive
-															: problem.status === ProblemStatus.FIXING
-																? styles.statusFixing
-																: styles.statusInactive
-													}`}
-												>
-													{problem.status}
-												</span>
-											</div>
+											<ProblemStatusBadge
+												status={problem.status}
+											/>
 										</div>
+									</div>
 
-										<p className={styles.difficulty}>
-											{version.difficulty ?? "Unspecified difficulty"}
-										</p>
-									</Link>
-								);
-							})}
+									<p className={styles.difficulty}>
+										{problem.difficulty ?? "Unspecified difficulty"}
+									</p>
+								</Link>
+							))}
 						</div>
 					)}
 				</section>
@@ -158,3 +114,4 @@ export default async function ProblemsPage() {
 		</main>
 	);
 }
+

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import styles from "./Navbar.module.css";
 import ThemeToggle from "./ThemeToggle";
 
@@ -17,31 +18,31 @@ export default function Navbar({ user = null }: NavbarProps) {
 	return (
 		<nav className={styles.navbar}>
 			<div className={styles.left}>
-				<a href="/" className={styles.brand}>
+				<Link href="/" className={styles.brand}>
 					TutorGrader
-				</a>
+				</Link>
 
 				{user && (
 					<>
-						<a href="/dashboard" className={styles.link}>
+						<Link href="/dashboard" className={styles.link}>
 							Dashboard
-						</a>
+						</Link>
 
-						<a href="/problems" className={styles.link}>
+						<Link href="/problems" className={styles.link}>
 							Problems
-						</a>
+						</Link>
 
-						<a href="/history" className={styles.link}>
+						<Link href="/history" className={styles.link}>
 							History
-						</a>
+						</Link>
 
 						{canCreateAccount && (
-							<a
+							<Link
 								href="/createaccount"
 								className={styles.link}
 							>
 								Create account
-							</a>
+							</Link>
 						)}
 					</>
 				)}
@@ -50,9 +51,9 @@ export default function Navbar({ user = null }: NavbarProps) {
 			<div className={styles.right}>
 				{user ? (
 					<>
-						<a href="/account" className={styles.link}>
+						<Link href="/account" className={styles.link}>
 							Account
-						</a>
+						</Link>
 
 						<ThemeToggle />
 
@@ -69,9 +70,9 @@ export default function Navbar({ user = null }: NavbarProps) {
 					<>
 						<ThemeToggle />
 
-						<a href="/login" className={styles.link}>
+						<Link href="/login" className={styles.link}>
 							Log in
-						</a>
+						</Link>
 					</>
 				)}
 			</div>

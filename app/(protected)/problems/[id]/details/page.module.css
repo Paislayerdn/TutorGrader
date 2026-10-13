@@ -235,3 +235,29 @@
 	text-align: right;
 }
 
+.status {
+	padding: 4px 8px;
+	border-radius: 6px;
+	font-size: 0.8rem;
+	font-weight: 600;
+}
+
+.statusActive {
+	color: #15803d;
+	background: #dcfce7;
+}
+
+.statusFixing {
+	color: #a16207;
+	background: #fef9c3;
+}
+
+.statusInactive {
+	color: #6b7280;
+	background: #f3f4f6;
+}
+
+.statusDraft {
+	color: #6b21a8;
+	background: #f3e8ff;
+}

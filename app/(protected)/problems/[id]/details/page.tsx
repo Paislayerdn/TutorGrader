@@ -1,4 +1,3 @@
-
 import { notFound, redirect } from "next/navigation";
 
 import styles from "./page.module.css";
@@ -69,7 +68,17 @@ export default async function ProblemDetailsPage({ params }: Props) {
 
 						{isAdmin && (
 							<div className={styles.headerActions}>
-								<span className={styles.status}>
+								<span
+									className={`${styles.status} ${
+										isDraft
+											? styles.statusDraft
+											: problem.status === ProblemStatus.ACTIVE
+												? styles.statusActive
+												: problem.status === ProblemStatus.FIXING
+													? styles.statusFixing
+													: styles.statusInactive
+									}`}
+								>
 									{isDraft ? "DRAFT" : problem.status}
 								</span>
 

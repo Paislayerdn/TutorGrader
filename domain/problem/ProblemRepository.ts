@@ -22,7 +22,7 @@ export type CreateProblemDraftData = {
 
 type ProblemRow = {
 	id: number;
-	status: "ACTIVE" | "FIXING" | "ARCHIVED";
+	status: "ACTIVE" | "FIXING" | "INACTIVE";
 	current_version_number: number | null;
 	current_draft_number: number | null;
 	created_at: string;

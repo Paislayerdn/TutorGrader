@@ -8,7 +8,7 @@ import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import styles from "./page.module.css";
 
 type Props = {
-	problemId: number;
+	problemId: string;
 	currentStatus: ProblemStatus;
 };
 

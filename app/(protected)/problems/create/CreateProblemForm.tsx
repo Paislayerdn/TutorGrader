@@ -32,7 +32,7 @@ type RequirementInput = {
 };
 
 type InitialData = {
-	problemId: number;
+	problemId: string;
 	versionNumber: number;
 	name: string;
 	description: string;
@@ -373,6 +373,20 @@ export default function CreateProblemForm({
 						</label>
 
 						<label className={styles.field}>
+							<span>Output comparison</span>
+							<select
+								value={outputComparison}
+								onChange={(event) =>
+									setOutputComparison(event.target.value)
+								}
+							>
+								<option value="EXACT">Exact</option>
+								<option value="TRIM">Trim whitespace</option>
+								<option value="FREE">Free comparison</option>
+							</select>
+						</label>
+						
+						<label className={styles.field}>
 							<span>Time limit (milliseconds)</span>
 							<input
 								type="number"
@@ -400,20 +414,6 @@ export default function CreateProblemForm({
 								0 means unlimited memory. The execution provider may still
 								impose its own memory limit.
 							</p>
-						</label>
-
-						<label className={styles.field}>
-							<span>Output comparison</span>
-							<select
-								value={outputComparison}
-								onChange={(event) =>
-									setOutputComparison(event.target.value)
-								}
-							>
-								<option value="EXACT">Exact</option>
-								<option value="TRIM">Trim whitespace</option>
-								<option value="FREE">Free comparison</option>
-							</select>
 						</label>
 					</div>
 				</section>

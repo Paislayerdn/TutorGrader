@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import argon2 from "argon2";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
 import { Owner } from "@/domain/user/Owner";
@@ -9,7 +9,7 @@ import { Owner } from "@/domain/user/Owner";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-	const currentUser = await getCurrentUser();
+	const currentUser = await getCurrentVisitor();
 
 	if (!currentUser) {
 		return NextResponse.json(

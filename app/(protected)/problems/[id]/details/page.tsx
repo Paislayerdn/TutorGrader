@@ -2,10 +2,11 @@ import { notFound, redirect } from "next/navigation";
 
 import styles from "./page.module.css";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Admin } from "@/domain/user/Admin";
+import { isUuid } from "@/lib/isUuid";
 
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 import PublishProblemButton from "./PublishProblemButton";
@@ -19,17 +20,15 @@ type Props = {
 };
 
 export default async function ProblemDetailsPage({ params }: Props) {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 	const { id } = await params;
 
-	const problemId = Number(id);
-
-	if (!Number.isSafeInteger(problemId) || problemId <= 0) {
+	if (!isUuid(id)) {
 		notFound();
 	}
 
 	const problemRepository = new ProblemRepository();
-	const problem = await problemRepository.findById(problemId);
+	const problem = await problemRepository.findById(id);
 
 	if (!problem) {
 		notFound();
@@ -47,9 +46,10 @@ export default async function ProblemDetailsPage({ params }: Props) {
 		}
 	}
 
-	const version = isDraft
-		? problem.getVersion(problem.currentDraftNumber!)
-		: problem.getVersion(problem.currentVersionNumber!);
+	const version =
+		problem.status === ProblemStatus.INACTIVE && problem.draft
+			? problem.draft
+			: problem.currentVersion;
 
 	if (!version) {
 		notFound();
@@ -82,7 +82,7 @@ export default async function ProblemDetailsPage({ params }: Props) {
 									Edit Problem
 								</a>
 							)}
-							
+
 							{isAdmin && (
 								<>
 									{isDraft ? (
@@ -94,7 +94,7 @@ export default async function ProblemDetailsPage({ params }: Props) {
 										/>
 									)}
 
-									{problem.currentDraftNumber !== null && (
+									{problem.draft !== null && (
 										<DeleteDraftButton
 											problemId={problem.id}
 											isPublished={!isDraft}
@@ -197,40 +197,8 @@ export default async function ProblemDetailsPage({ params }: Props) {
 							</ul>
 						)}
 					</section>
-
-					{isAdmin && (
-						<section className={styles.section}>
-							<h2>Test Cases</h2>
-
-							<div className={styles.testCases}>
-								{version.testCases.map((testCase, index) => (
-									<article
-										key={index}
-										className={styles.testCase}
-									>
-										<h3>Test Case {index + 1}</h3>
-
-										<div className={styles.testCaseGrid}>
-											<div>
-												<strong>Input</strong>
-												<pre>{testCase.input || "(empty)"}</pre>
-											</div>
-
-											<div>
-												<strong>Expected Output</strong>
-												<pre>
-													{testCase.expectedOutput || "(empty)"}
-												</pre>
-											</div>
-										</div>
-									</article>
-								))}
-							</div>
-						</section>
-					)}
 				</div>
 			</section>
 		</main>
 	);
 }
-

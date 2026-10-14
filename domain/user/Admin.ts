@@ -1,15 +1,15 @@
 import { User } from "./User";
 import { UserData } from "./UserData";
+import { Role } from "./Role";
 
 export class Admin extends User {
 	constructor(
 		id: string,
 		data: UserData,
 		createdById: string,
-		createdBy: Admin | null
 	) {
-		super(id, data, createdById, createdBy);
+		super(id, data, createdById);
 	}
 
-	public override get role(): "USER" | "ADMIN" | "OWNER" { return "ADMIN"; }
+	public override get role(): Role { return "ADMIN"; }
 }

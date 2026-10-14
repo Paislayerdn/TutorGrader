@@ -6,10 +6,9 @@ import { StuffRepository } from "@/domain/stuff/StuffRepository";
 import { ProblemVersion } from "./ProblemVersion";
 import { ProblemVersionStatus } from "./ProblemVersionStatus";
 import { OutputComparison } from "./OutputComparison";
-import { TestCase } from "../TestCase";
 
 type ProblemVersionRow = {
-	problem_id: number;
+	problem_id: string;
 	version_number: number;
 	status: "DRAFT" | "PUBLISHED";
 	name: string;
@@ -24,23 +23,11 @@ type ProblemVersionRow = {
 };
 
 type LanguageRow = {
-	language_id: number;
+	language: string;
 };
 
 type RequirementRow = {
 	requirement: string;
-};
-
-type TestCaseRow = {
-	order: number;
-	test_case_id: number;
-	test_case: {
-		input: string;
-		expected_output: string;
-	} | {
-		input: string;
-		expected_output: string;
-	}[] | null;
 };
 
 type StuffRow = {
@@ -55,7 +42,7 @@ export class ProblemVersionRepository {
 	private readonly stuffRepository = new StuffRepository();
 
 	async findProblemVersion(
-		problemId: number,
+		problemId: string,
 		versionNumber: number,
 	): Promise<ProblemVersion | null> {
 		const { data, error } = await supabaseAdmin
@@ -77,12 +64,11 @@ export class ProblemVersionRepository {
 		const [
 			languageResult,
 			requirementResult,
-			testCaseResult,
 			stuffResult,
 		] = await Promise.all([
 			supabaseAdmin
-				.from("problem_version_language")
-				.select("language_id")
+				.from("problem_version_language_view")
+				.select("language")
 				.eq("problem_id", problemId)
 				.eq("version_number", versionNumber),
 
@@ -93,70 +79,32 @@ export class ProblemVersionRepository {
 				.eq("version_number", versionNumber),
 
 			supabaseAdmin
-				.from("problem_version_test_case")
-				.select(`
-					"order",
-					test_case_id,
-					test_case (
-						input,
-						expected_output
-					)
-				`)
-				.eq("problem_id", problemId)
-				.eq("version_number", versionNumber)
-				.order("order", { ascending: true }),
-
-			supabaseAdmin
-				.from("problem_version_stuff")
+				.from("problem_version_stuff_view")
 				.select("stuff_id")
 				.eq("problem_id", problemId)
 				.eq("version_number", versionNumber),
 		]);
 
 		if (
-			languageResult.error ||
-			requirementResult.error ||
-			testCaseResult.error ||
-			stuffResult.error
+			languageResult.error
+			|| requirementResult.error
+			|| stuffResult.error
 		) {
 			console.error("Problem version relationship lookup error:", {
 				languages: languageResult.error,
 				requirements: requirementResult.error,
-				testCases: testCaseResult.error,
 				stuffs: stuffResult.error,
 			});
 			throw new Error("Unable to load problem version details.");
 		}
 
-		const languageIds = (
+		const selectedLanguages = (
 			languageResult.data as LanguageRow[]
-		).map(item => item.language_id);
-
-		const languages = await this.languageRepository.findAll();
-		const selectedLanguages = languages.filter(
-			language => languageIds.includes(language.id),
-		);
+		).map(row => row.language);
 
 		const requirements = (
 			requirementResult.data as RequirementRow[]
 		).map(item => item.requirement);
-
-		const testCaseRows = testCaseResult.data as TestCaseRow[];
-
-		const testCases = testCaseRows.map(item => {
-			const testCase = Array.isArray(item.test_case)
-				? item.test_case[0]
-				: item.test_case;
-
-			if (!testCase) {
-				throw new Error("Unable to load problem version test cases.");
-			}
-
-			return new TestCase(
-				testCase.input,
-				testCase.expected_output,
-			);
-		});
 
 		const stuffIds = (
 			stuffResult.data as StuffRow[]
@@ -169,6 +117,15 @@ export class ProblemVersionRepository {
 		if (stuffs.some(stuff => stuff === null)) {
 			throw new Error("Unable to load problem version attachments.");
 		}
+
+		const languages = await this.languageRepository.findAll();
+		const languageByName = new Map(
+			languages.map(language => [language.name, language]),
+		);
+
+		const resolvedLanguages = selectedLanguages
+			.map(name => languageByName.get(name))
+			.filter(language => language !== undefined);
 
 		return new ProblemVersion(
 			row.problem_id,
@@ -185,14 +142,15 @@ export class ProblemVersionRepository {
 			row.published_at
 				? new Date(row.published_at)
 				: null,
-			selectedLanguages,
+			resolvedLanguages,
 			requirements,
-			testCases,
 			stuffs.filter(stuff => stuff !== null),
 		);
 	}
-	
-	async findProblemVersions(problemId: number): Promise<ProblemVersion[]> {
+
+	async findProblemVersions(
+		problemId: string,
+	): Promise<ProblemVersion[]> {
 		const { data, error } = await supabaseAdmin
 			.from("problem_version")
 			.select("version_number")

@@ -1,12 +1,11 @@
 import { OutputComparison } from "./OutputComparison";
 import { ProblemVersionStatus } from "./ProblemVersionStatus";
-import { TestCase } from "../TestCase";
 import { Language } from "@/domain/language/Language";
 import { Stuff } from "@/domain/stuff/Stuff";
 
 export class ProblemVersion {
 	constructor(
-		public problemId: number,
+		public problemId: string,
 		public versionNumber: number,
 		public status: ProblemVersionStatus,
 
@@ -24,7 +23,6 @@ export class ProblemVersion {
 
 		public languages: Language[],
 		public requirements: string[],
-		public testCases: TestCase[],
-		public stuffs: Stuff[]
+		public stuffs: Stuff[],
 	) {}
 }

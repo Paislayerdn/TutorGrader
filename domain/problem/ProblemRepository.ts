@@ -2,7 +2,6 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 import { Problem } from "./Problem";
 import { ProblemStatus } from "./ProblemStatus";
-import { ProblemVersion } from "./version/ProblemVersion";
 import { ProblemVersionRepository } from "./version/ProblemVersionRepository";
 import { OutputComparison } from "./version/OutputComparison";
 import { TestCase } from "./TestCase";
@@ -27,7 +26,7 @@ type DeletedDraftStuff = {
 };
 
 type ProblemRow = {
-	id: number;
+	id: string;
 	status: "ACTIVE" | "FIXING" | "INACTIVE";
 	current_version_number: number | null;
 	current_draft_number: number | null;
@@ -37,7 +36,8 @@ type ProblemRow = {
 };
 
 export type ProblemListItem = {
-	id: number;
+	id: string;
+	problemNumber: number;
 	status: ProblemStatus;
 	versionNumber: number;
 	name: string;
@@ -46,7 +46,8 @@ export type ProblemListItem = {
 };
 
 type ProblemListViewRow = {
-	id: number;
+	id: string;
+	problem_number: number;
 	status: ProblemStatus;
 	current_version_number: number;
 	name: string;
@@ -54,12 +55,12 @@ type ProblemListViewRow = {
 };
 
 type DraftListRow = {
-	id: number;
+	id: string;
 	current_draft_number: number;
 };
 
 type DraftVersionListRow = {
-	problem_id: number;
+	problem_id: string;
 	version_number: number;
 	name: string;
 	difficulty: string | null;
@@ -73,7 +74,7 @@ export class ProblemRepository {
 
 	async createDraft(
 		data: CreateProblemDraftData,
-	): Promise<{ problemId: number; versionNumber: number }> {
+	): Promise<{ problemId: string; versionNumber: number }> {
 		const { data: result, error } = await supabaseAdmin.rpc(
 			"create_problem_draft",
 			{
@@ -101,13 +102,11 @@ export class ProblemRepository {
 			);
 		}
 
-		console.log("Draft RPC result:", JSON.stringify(result, null, 2));
-
 		const created = result?.[0];
 
 		if (
 			!created
-			|| typeof created.problem_id !== "number"
+			|| typeof created.problem_id !== "string"
 			|| typeof created.version_number !== "number"
 		) {
 			throw new Error("Problem draft creation returned invalid data.");
@@ -119,7 +118,7 @@ export class ProblemRepository {
 		};
 	}
 
-	async openDraftForEditing(problemId: number): Promise<ProblemVersion> {
+	async openDraftForEditing(problemId: string): Promise<import("./version/ProblemVersion").ProblemVersion> {
 		const { data, error } = await supabaseAdmin.rpc(
 			"create_problem_edit_draft",
 			{
@@ -135,9 +134,9 @@ export class ProblemRepository {
 		const result = data?.[0];
 
 		if (
-			!result ||
-			Number(result.problem_id) !== problemId ||
-			typeof result.version_number !== "number"
+			!result
+			|| result.problem_id !== problemId
+			|| typeof result.version_number !== "number"
 		) {
 			throw new Error("Problem edit draft RPC returned invalid data.");
 		}
@@ -154,7 +153,7 @@ export class ProblemRepository {
 		return draft;
 	}
 
-	async deleteDraft(id: number): Promise<DeletedDraftStuff[]> {
+	async deleteDraft(id: string): Promise<DeletedDraftStuff[]> {
 		const { data, error } = await supabaseAdmin.rpc(
 			"delete_problem_draft",
 			{ p_problem_id: id },
@@ -168,7 +167,6 @@ export class ProblemRepository {
 		return (data ?? []) as DeletedDraftStuff[];
 	}
 
-	
 	async findAllForListing(
 		canViewInactive: boolean,
 	): Promise<ProblemListItem[]> {
@@ -176,10 +174,10 @@ export class ProblemRepository {
 			await supabaseAdmin
 				.from("problem_list_view")
 				.select(
-					"id, status, current_version_number, name, difficulty",
+					"id, problem_number, status, current_version_number, name, difficulty",
 				)
 				.in("status", ["ACTIVE", "FIXING"])
-				.order("id", { ascending: true });
+				.order("problem_number", { ascending: true });
 
 		if (activeError) {
 			console.error("Active problem list lookup error:", activeError);
@@ -195,10 +193,10 @@ export class ProblemRepository {
 				await supabaseAdmin
 					.from("problem_list_view")
 					.select(
-						"id, status, current_version_number, name, difficulty",
+						"id, problem_number, status, current_version_number, name, difficulty",
 					)
 					.eq("status", "INACTIVE")
-					.order("id", { ascending: true });
+					.order("problem_number", { ascending: true });
 
 			if (inactiveError) {
 				console.error(
@@ -215,6 +213,7 @@ export class ProblemRepository {
 
 		const items: ProblemListItem[] = publishedRows.map(row => ({
 			id: row.id,
+			problemNumber: row.problem_number,
 			status: row.status,
 			versionNumber: row.current_version_number,
 			name: row.name,
@@ -223,11 +222,9 @@ export class ProblemRepository {
 		}));
 
 		if (!canViewInactive) {
-			return items.sort((a, b) => a.id - b.id);
+			return items.sort((a, b) => a.problemNumber - b.problemNumber);
 		}
 
-		// Draft-only problems are fetched separately; their versions
-		// are loaded in one query instead of fully hydrating each Problem.
 		const { data: draftProblems, error: draftError } =
 			await supabaseAdmin
 				.from("problem")
@@ -243,7 +240,7 @@ export class ProblemRepository {
 		const drafts = (draftProblems ?? []) as DraftListRow[];
 
 		if (drafts.length === 0) {
-			return items.sort((a, b) => a.id - b.id);
+			return items.sort((a, b) => a.problemNumber - b.problemNumber);
 		}
 
 		const { data: draftVersions, error: versionError } =
@@ -277,6 +274,7 @@ export class ProblemRepository {
 
 			items.push({
 				id: draft.id,
+				problemNumber: 0,
 				status: ProblemStatus.INACTIVE,
 				versionNumber: version.version_number,
 				name: version.name,
@@ -285,10 +283,10 @@ export class ProblemRepository {
 			});
 		}
 
-		return items.sort((a, b) => a.id - b.id);
+		return items.sort((a, b) => a.problemNumber - b.problemNumber);
 	}
 
-	async findById(id: number): Promise<Problem | null> {
+	async findById(id: string): Promise<Problem | null> {
 		const { data, error } = await supabaseAdmin
 			.from("problem")
 			.select(ProblemRepository.PROBLEM_COLUMNS)
@@ -309,7 +307,7 @@ export class ProblemRepository {
 		const { data, error } = await supabaseAdmin
 			.from("problem")
 			.select(ProblemRepository.PROBLEM_COLUMNS)
-			.order("id", { ascending: true });
+			.order("created_at", { ascending: true });
 
 		if (error) {
 			console.error("Problem list lookup error:", error);
@@ -322,36 +320,32 @@ export class ProblemRepository {
 	}
 
 	private async createProblem(row: ProblemRow): Promise<Problem> {
-		const versionNumbers = [
-			row.current_version_number,
-			row.current_draft_number,
-		].filter((number): number is number => number !== null);
+		const currentVersion = row.current_version_number === null
+			? null
+			: await this.problemVersionRepository.findProblemVersion(
+				row.id,
+				row.current_version_number,
+			);
 
-		const versions = [];
-
-		for (const versionNumber of versionNumbers) {
-			const version =
-				await this.problemVersionRepository.findProblemVersion(
-					row.id,
-					versionNumber,
-				);
-
-			if (version) versions.push(version);
-		}
+		const draft = row.current_draft_number === null
+			? null
+			: await this.problemVersionRepository.findProblemVersion(
+				row.id,
+				row.current_draft_number,
+			);
 
 		return new Problem(
 			row.id,
 			row.status as ProblemStatus,
-			row.current_version_number,
-			row.current_draft_number,
+			currentVersion,
+			draft,
 			row.created_by,
 			new Date(row.created_at),
 			new Date(row.updated_at),
-			versions,
 		);
 	}
 
-	async updateStatus(id: number, status: ProblemStatus): Promise<void> {
+	async updateStatus(id: string, status: ProblemStatus): Promise<void> {
 		const { error } = await supabaseAdmin
 			.from("problem")
 			.update({ status })

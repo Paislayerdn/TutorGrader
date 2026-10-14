@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth-guards";
 import { clearSession } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function handleDeactivate() {
-	const user = await getCurrentUser();
-
-	if (!user) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 }
-		);
-	}
+	const user = await requireUser();
 
 	const { error } = await supabaseAdmin
 		.from("app_user")

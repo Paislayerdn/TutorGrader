@@ -1,5 +1,3 @@
-import { Principal } from "./Principal";
-
-export class Visitor extends Principal {
-
+export class Visitor {
+	public get isAuthenticated(): boolean { return false; }
 }

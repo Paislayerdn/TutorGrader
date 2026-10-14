@@ -1,21 +1,14 @@
 import { NextResponse } from "next/server";
 import argon2 from "argon2";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth-guards";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function handlePassword(body: {
 	currentPassword?: string;
 	newPassword?: string;
 }) {
-	const user = await getCurrentUser();
-
-	if (!user) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 }
-		);
-	}
+	const user = await requireUser();
 
 	const currentPassword = body.currentPassword;
 	const newPassword = body.newPassword;
@@ -54,8 +47,6 @@ export async function handlePassword(body: {
 		);
 	}
 
-	const passwordHash = await argon2.hash(newPassword);
-
 	const samePassword = await argon2.verify(
 		account.password_hash,
 		newPassword
@@ -67,6 +58,9 @@ export async function handlePassword(body: {
 			{ status: 400 }
 		);
 	}
+
+	const passwordHash = await argon2.hash(newPassword);
+
 	const { error: updateError } = await supabaseAdmin.rpc(
 		"change_password_with_history",
 		{

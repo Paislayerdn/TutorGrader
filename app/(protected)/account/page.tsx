@@ -1,30 +1,28 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth-guards";
 import { UserRepository } from "@/domain/user/UserRepository";
 import AccountForm from "./AccountForm";
 
 const userRepository = new UserRepository();
 
 export default async function AccountPage() {
-	const user = await getCurrentUser();
+	const user = await requireUser();
 
-	if (!user) {
-		redirect("/login?error=unauthorized");
-	}
-
-	const accountUser = await userRepository.findByIdWithCreator(user.id);
+	const accountUser = await userRepository.findById(user.id);
 
 	if (!accountUser) {
 		redirect("/login?error=unauthorized");
 	}
+
+	const creator = await userRepository.findById(accountUser.createdById);
 
 	return (
 		<AccountForm
 			username={accountUser.username}
 			registeredName={accountUser.registeredName}
 			createdAt={accountUser.createdAt.toISOString()}
-			createdBy={accountUser.createdBy?.username ?? "Unknown"}
+			createdBy={creator?.username ?? "Unknown"}
 		/>
 	);
 }

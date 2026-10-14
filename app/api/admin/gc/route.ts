@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { Owner } from "@/domain/user/Owner";
 
 export const runtime = "nodejs";
 
 export async function POST() {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 
 	if (!user) {
 		return NextResponse.json(

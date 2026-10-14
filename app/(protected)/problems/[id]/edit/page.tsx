@@ -1,10 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
 import { LanguageRepository } from "@/domain/language/LanguageRepository";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { isUuid } from "@/lib/isUuid";
 
 import CreateProblemForm from "../../create/CreateProblemForm";
 import styles from "../../create/page.module.css";
@@ -16,28 +17,32 @@ type Props = {
 };
 
 type DraftRow = {
-	problem_id: number;
+	problem_id: string;
 	version_number: number;
 };
 
+type TestCaseRow = {
+	input: string;
+	expected_output: string;
+};
+
 export default async function EditProblemPage({ params }: Props) {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 
 	if (!(user instanceof Admin)) {
 		redirect("/problems");
 	}
 
 	const { id } = await params;
-	const problemId = Number(id);
 
-	if (!Number.isSafeInteger(problemId) || problemId <= 0) {
+	if (!isUuid(id)) {
 		notFound();
 	}
 
 	const { data, error } = await supabaseAdmin.rpc(
 		"create_problem_edit_draft",
 		{
-			p_problem_id: problemId,
+			p_problem_id: id,
 		},
 	);
 
@@ -57,30 +62,62 @@ export default async function EditProblemPage({ params }: Props) {
 
 	if (
 		!draft ||
-		draft.problem_id !== problemId ||
+		draft.problem_id !== id ||
 		!Number.isSafeInteger(draft.version_number)
 	) {
 		notFound();
 	}
 
 	const problemRepository = new ProblemRepository();
-	const problem = await problemRepository.findById(problemId);
+	const problem = await problemRepository.findById(id);
 
 	if (!problem) {
 		notFound();
 	}
 
-	const version = problem.getVersion(draft.version_number);
+	const version =
+		problem.draft?.versionNumber === draft.version_number
+			? problem.draft
+			: null;
 
 	if (!version) {
 		notFound();
 	}
 
+	const { data: testCaseRows, error: testCaseError } =
+		await supabaseAdmin
+			.from("problem_version_test_case")
+			.select(`
+				test_case (
+					input,
+					expected_output
+				)
+			`)
+			.eq("problem_id", id)
+			.eq("version_number", draft.version_number);
+
+	if (testCaseError) {
+		console.error("Unable to load draft test cases:", testCaseError);
+		notFound();
+	}
+
+	const testCases = ((testCaseRows ?? []) as Array<{
+		test_case:
+			| TestCaseRow
+			| TestCaseRow[]
+			| null;
+	}>).flatMap(row => {
+		if (!row.test_case) return [];
+		return Array.isArray(row.test_case)
+			? row.test_case
+			: [row.test_case];
+	});
+
 	const languageRepository = new LanguageRepository();
 	const languages = await languageRepository.findAll();
 
 	const initialData = {
-		problemId,
+		problemId: id,
 		versionNumber: version.versionNumber,
 		name: version.name,
 		description: version.description ?? "",
@@ -88,13 +125,13 @@ export default async function EditProblemPage({ params }: Props) {
 		timeLimitMs: version.timeLimitMs,
 		memoryLimitKb: version.memoryLimitKb,
 		outputComparison: version.outputComparison,
-		languageIds: version.languages.map((language) => language.id),
+		languageIds: version.languages.map(language => language.id),
 		requirements: version.requirements,
-		testCases: version.testCases.map((testCase) => ({
+		testCases: testCases.map(testCase => ({
 			input: testCase.input,
-			expectedOutput: testCase.expectedOutput,
+			expectedOutput: testCase.expected_output,
 		})),
-		attachments: version.stuffs.map((stuff) => ({
+		attachments: version.stuffs.map(stuff => ({
 			id: stuff.id,
 			filename:
 				stuff.storagePath
@@ -115,7 +152,7 @@ export default async function EditProblemPage({ params }: Props) {
 				</p>
 
 				<CreateProblemForm
-					languages={languages.map((language) => ({
+					languages={languages.map(language => ({
 						id: language.id,
 						name: language.name,
 						extensions: language.extensions,

@@ -5,6 +5,7 @@ export class UserData {
 		public registeredName: string,
 		public username: string,
 		public status: UserStatus,
-		public createdAt: Date
+		public createdAt: Date,
+		public passwordChangedAt: Date | null,
 	) {}
 }

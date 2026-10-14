@@ -1,12 +1,8 @@
-import { redirect } from "next/navigation";
-
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth-guards";
 import styles from "./page.module.css";
 
 export default async function DashboardPage() {
-	const user = await getCurrentUser();
-
-	if (!user) redirect("/login?error=unauthorized");
+	const user = await requireUser();
 
 	return (
 		<main className={styles.page}>

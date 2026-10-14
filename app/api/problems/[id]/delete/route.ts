@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { Admin } from "@/domain/user/Admin";
+import { isUuid } from "@/lib/isUuid";
 
 type Props = {
 	params: Promise<{
@@ -14,14 +15,7 @@ type Props = {
 const problemRepository = new ProblemRepository();
 
 export async function DELETE(request: Request, { params }: Props) {
-	const currentUser = await getCurrentUser();
-
-	if (!currentUser) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 },
-		);
-	}
+	const currentUser = await getCurrentVisitor();
 
 	if (!(currentUser instanceof Admin)) {
 		return NextResponse.json(
@@ -31,16 +25,15 @@ export async function DELETE(request: Request, { params }: Props) {
 	}
 
 	const { id } = await params;
-	const problemId = Number(id);
 
-	if (!Number.isSafeInteger(problemId) || problemId <= 0) {
+	if (!isUuid(id)) {
 		return NextResponse.json(
 			{ error: "Invalid problem ID." },
 			{ status: 400 },
 		);
 	}
 
-	const problem = await problemRepository.findById(problemId);
+	const problem = await problemRepository.findById(id);
 
 	if (!problem) {
 		return NextResponse.json(
@@ -49,7 +42,7 @@ export async function DELETE(request: Request, { params }: Props) {
 		);
 	}
 
-	if (problem.currentDraftNumber === null) {
+	if (problem.draftVersionNumber === null) {
 		return NextResponse.json(
 			{ error: "This problem has no draft to delete." },
 			{ status: 400 },
@@ -57,7 +50,7 @@ export async function DELETE(request: Request, { params }: Props) {
 	}
 
 	try {
-		const deletedStuff = await problemRepository.deleteDraft(problemId);
+		const deletedStuff = await problemRepository.deleteDraft(id);
 
 		const pathsByBucket = new Map<string, string[]>();
 
@@ -81,7 +74,7 @@ export async function DELETE(request: Request, { params }: Props) {
 		}
 
 		return NextResponse.json({
-			problemId,
+			problemId: id,
 		});
 	} catch (error) {
 		console.error("Problem draft deletion error:", error);

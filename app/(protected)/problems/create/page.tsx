@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { LanguageRepository } from "@/domain/language/LanguageRepository";
 
 import CreateProblemForm from "./CreateProblemForm";
@@ -9,7 +9,7 @@ import styles from "./page.module.css";
 import { Admin } from "@/domain/user/Admin";
 
 export default async function CreateProblemPage() {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 
 	if (!(user instanceof Admin)) {
 		redirect("/problems");

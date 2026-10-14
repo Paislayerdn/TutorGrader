@@ -2,16 +2,14 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
-import {
-	StuffRepository,
-	type CreateStuffData,
-} from "@/domain/stuff/StuffRepository";
+import { StuffRepository, type CreateStuffData, } from "@/domain/stuff/StuffRepository";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 import { ProblemVersionStatus } from "@/domain/problem/version/ProblemVersionStatus";
+import { isUuid } from "@/lib/isUuid";
 
 export const runtime = "nodejs";
 
@@ -43,7 +41,7 @@ function sanitizeFilename(filename: string): string {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 
 	if (!user) {
 		return NextResponse.json(
@@ -60,9 +58,9 @@ export async function PUT(request: Request, { params }: Props) {
 	}
 
 	const { id } = await params;
-	const problemId = Number(id);
+	const problemId = id;
 
-	if (!Number.isSafeInteger(problemId) || problemId <= 0) {
+	if (!isUuid(problemId)) {
 		return NextResponse.json(
 			{ error: "Invalid problem ID." },
 			{ status: 400 },
@@ -256,14 +254,14 @@ export async function PUT(request: Request, { params }: Props) {
 		);
 	}
 
-	if (problem.currentDraftNumber !== versionNumber) {
+	if (problem.draftVersionNumber !== versionNumber) {
 		return NextResponse.json(
 			{ error: "This is no longer the current draft. Reopen the editor." },
 			{ status: 409 },
 		);
 	}
 
-	const draft = problem.getVersion(versionNumber);
+	const draft = problem.draft?.versionNumber === versionNumber ? problem.draft : null;
 
 	if (!draft || draft.status !== ProblemVersionStatus.DRAFT) {
 		return NextResponse.json(

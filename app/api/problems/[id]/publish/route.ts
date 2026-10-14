@@ -1,9 +1,10 @@
 
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
+import { isUuid } from "@/lib/isUuid";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ type Props = {
 };
 
 export async function POST(_request: Request, { params }: Props) {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 
 	if (!user) {
 		return NextResponse.json(
@@ -31,9 +32,9 @@ export async function POST(_request: Request, { params }: Props) {
 	}
 
 	const { id } = await params;
-	const problemId = Number(id);
+	const problemId = id;
 
-	if (!Number.isSafeInteger(problemId) || problemId <= 0) {
+	if (!isUuid(problemId)) {
 		return NextResponse.json(
 			{ error: "Invalid problem ID." },
 			{ status: 400 },
@@ -60,9 +61,7 @@ export async function POST(_request: Request, { params }: Props) {
 	const published = data?.[0];
 
 	if (
-		!published ||
-		Number(published.problem_id) !== problemId ||
-		typeof published.version_number !== "number"
+		!published || published.problem_id !== problemId
 	) {
 		return NextResponse.json(
 			{ error: "The publishing operation returned invalid data." },

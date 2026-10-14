@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
 
 import "./globals.css";
@@ -16,11 +16,12 @@ export default async function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 	const cookieStore = await cookies();
-	const theme = cookieStore.get("theme")?.value === "dark"
-		? "dark"
-		: "light";
+	const theme =
+		cookieStore.get("theme")?.value === "dark"
+			? "dark"
+			: "light";
 
 	return (
 		<html

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { StuffRepository } from "@/domain/stuff/StuffRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
@@ -22,7 +22,7 @@ type ProblemVersionLink = {
 };
 
 export async function GET(_request: Request, { params }: Props) {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 
 	if (!user) {
 		return NextResponse.json(

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
 type Props = {
-	problemId: number;
+	problemId: string;
 };
 
 export default function PublishProblemButton({ problemId }: Props) {

@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Admin } from "@/domain/user/Admin";
+import { isUuid } from "@/lib/isUuid";
 
 type Props = {
 	params: Promise<{ id: string }>;
 };
 
 export async function PATCH(request: Request, { params }: Props) {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 
 	if (!(user instanceof Admin)) {
 		return NextResponse.json(
@@ -20,9 +21,8 @@ export async function PATCH(request: Request, { params }: Props) {
 	}
 
 	const { id } = await params;
-	const problemId = Number(id);
 
-	if (!Number.isSafeInteger(problemId) || problemId <= 0) {
+	if (!isUuid(id)) {
 		return NextResponse.json(
 			{ error: "Invalid problem ID." },
 			{ status: 400 },
@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: Props) {
 	}
 
 	const problemRepository = new ProblemRepository();
-	const problem = await problemRepository.findById(problemId);
+	const problem = await problemRepository.findById(id);
 
 	if (!problem) {
 		return NextResponse.json(
@@ -66,10 +66,10 @@ export async function PATCH(request: Request, { params }: Props) {
 	const status = body.status as ProblemStatus;
 
 	try {
-		await problemRepository.updateStatus(problemId, status);
+		await problemRepository.updateStatus(id, status);
 
 		return NextResponse.json({
-			problemId,
+			problemId: id,
 			status,
 		});
 	} catch (error) {

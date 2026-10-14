@@ -1,25 +1,21 @@
-import { Principal } from "./Principal";
+import { Visitor } from "./Visitor";
 import { UserData } from "./UserData";
-import { UserDTO } from "./UserDTO";
-import type { Admin } from "./Admin";
+import { Role } from "./Role";
 
-export class User extends Principal {
+export class User extends Visitor {
 	constructor(
 		public id: string,
 		public data: UserData,
 		public createdById: string,
-		public createdBy: Admin | null
 	) {
 		super();
 	}
 
+	public override get isAuthenticated(): boolean { return true; }
 	public get username(): string { return this.data.username; }
 	public get registeredName(): string { return this.data.registeredName; }
-	public get status() { return this.data.status; }
+	public get status(): string { return this.data.status; }
 	public get createdAt(): Date { return this.data.createdAt; }
-	public get role(): "USER" | "ADMIN" | "OWNER" { return "USER"; }
-
-	public toDTO(creatorName: string): UserDTO {
-		return new UserDTO(this.data, this.role, creatorName);
-	}
+	public get passwordChangedAt(): Date | null { return this.data.passwordChangedAt; }
+	public get role(): Role { return "USER"; }
 }

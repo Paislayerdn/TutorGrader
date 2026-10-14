@@ -1,31 +1,25 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth-guards";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function handleUsername(body: {
 	username?: string;
 }) {
-	const user = await getCurrentUser();
-
-	if (!user) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 }
-		);
-	}
+	const user = await requireUser();
 
 	const username = body.username?.trim();
+
+	if (!username) {
+		return NextResponse.json(
+			{ error: "Username is required." },
+			{ status: 400 }
+		);
+	}
 
 	if (username === user.username) {
 		return NextResponse.json(
 			{ error: "New username must be different from the current username." },
-			{ status: 400 }
-		);
-	}
-	if (!username) {
-		return NextResponse.json(
-			{ error: "Username is required." },
 			{ status: 400 }
 		);
 	}
@@ -53,10 +47,6 @@ export async function handleUsername(body: {
 			{ status: 500 }
 		);
 	}
-
-	return NextResponse.json({
-		user: data,
-	});
 
 	return NextResponse.json({
 		user: data,

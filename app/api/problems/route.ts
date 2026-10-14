@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
@@ -36,7 +36,7 @@ function sanitizeFilename(filename: string): string {
 }
 
 export async function POST(request: Request) {
-	const currentUser = await getCurrentUser();
+	const currentUser = await getCurrentVisitor();
 
 	if (!currentUser) {
 		return NextResponse.json(
@@ -249,7 +249,7 @@ export async function POST(request: Request) {
 			outputComparison: outputComparison as OutputComparison,
 			languageIds: [...new Set(languageIds as number[])],
 			requirements: requirements as string[],
-			testCases: rawTestCases.map((testCase, index) =>
+			testCases: rawTestCases.map( testCase =>
 				new TestCase(
 					testCase.input as string,
 					testCase.expectedOutput as string,

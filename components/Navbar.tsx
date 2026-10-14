@@ -1,19 +1,19 @@
 import Link from "next/link";
+
+import { User } from "@/domain/user/User";
+import { Admin } from "@/domain/user/Admin";
+import { Visitor } from "@/domain/user/Visitor";
+
 import styles from "./Navbar.module.css";
 import ThemeToggle from "./ThemeToggle";
 
-type NavbarUser = {
-	username: string;
-	role: "USER" | "ADMIN" | "OWNER";
-};
-
 type NavbarProps = {
-	user?: NavbarUser | null;
+	user: Visitor;
 };
 
-export default function Navbar({ user = null }: NavbarProps) {
-	const canCreateAccount =
-		user?.role === "ADMIN" || user?.role === "OWNER";
+export default function Navbar({ user }: NavbarProps) {
+	const isUser = user instanceof User;
+	const canCreateAccount = user instanceof Admin;
 
 	return (
 		<nav className={styles.navbar}>
@@ -22,7 +22,7 @@ export default function Navbar({ user = null }: NavbarProps) {
 					TutorGrader
 				</Link>
 
-				{user && (
+				{isUser && (
 					<>
 						<Link href="/dashboard" className={styles.link}>
 							Dashboard
@@ -49,7 +49,7 @@ export default function Navbar({ user = null }: NavbarProps) {
 			</div>
 
 			<div className={styles.right}>
-				{user ? (
+				{isUser ? (
 					<>
 						<Link href="/account" className={styles.link}>
 							Account

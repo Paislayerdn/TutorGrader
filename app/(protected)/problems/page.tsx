@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import styles from "./page.module.css";
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentVisitor } from "@/lib/auth";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { Admin } from "@/domain/user/Admin";
 import { Owner } from "@/domain/user/Owner";
@@ -12,7 +12,7 @@ import GCButton from "@/components/GCButton";
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 
 export default async function ProblemsPage() {
-	const user = await getCurrentUser();
+	const user = await getCurrentVisitor();
 	const canCreateProblem = user instanceof Admin;
 
 	const problemRepository = new ProblemRepository();

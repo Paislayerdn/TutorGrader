@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getSessionStatus } from "@/lib/session";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth-guards";
 
 export default async function ProtectedLayout({
 	children,
@@ -14,11 +14,7 @@ export default async function ProtectedLayout({
 		redirect("/login?error=session_expired");
 	}
 
-	const user = await getCurrentUser();
-
-	if (!user) {
-		redirect("/login?error=unauthorized");
-	}
+	await requireUser();
 
 	return children;
 }

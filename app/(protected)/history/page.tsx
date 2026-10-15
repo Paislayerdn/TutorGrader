@@ -19,7 +19,6 @@ export default async function HistoryPage() {
 			<section className={styles.content}>
 				<header className={styles.header}>
 					<div>
-						<p className={styles.eyebrow}>YOUR WORK</p>
 						<h1>Submission History</h1>
 						<p className={styles.description}>
 							Review your attempts and inspect their results.

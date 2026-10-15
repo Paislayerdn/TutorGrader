@@ -220,20 +220,23 @@
 	background: color-mix(in srgb, #16a34a 12%, var(--background));
 	color: #16a34a;
 }
+.submissionStatus[data-status="INCOMPLETE"] {
+	border-color: #dc2626;
+	background: color-mix(in srgb, #dc2626 10%, var(--background));
+	color: #dc2626;
+}
 
-
-
-.status[data-status="PASS"] {
+.submissionStatus[data-status="PASS"] {
 	border-color: #16a34a;
 	background: color-mix(in srgb, #16a34a 12%, var(--background));
 	color: #16a34a;
 }
-
-.status[data-status="WRONG_ANSWER"] {
+.submissionStatus[data-status="WRONG_ANSWER"] {
 	border-color: #d97706;
 	background: color-mix(in srgb, #eab308 12%, var(--background));
 	color: #d97706;
 }
+
 
 .status[data-status="COMPILE_ERROR"],
 .status[data-status="RUNTIME_ERROR"],
@@ -431,6 +434,7 @@
 	opacity: 0.75;
 }
 
+
 .downloadButton {
 	align-self: flex-start;
 	padding: 9px 13px;
@@ -441,9 +445,19 @@
 	font: inherit;
 	font-size: 0.85rem;
 	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.downloadButton:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--foreground) 8%, var(--background));
+}
+
+.downloadButton:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
 }
+
 
 .verdictLine {
 	margin: 0;

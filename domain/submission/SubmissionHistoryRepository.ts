@@ -20,6 +20,7 @@ export type SubmissionHistoryItem = {
 	status: string;
 	submittedAt: string;
 	sourceFilename: string;
+	sourceStuffId: string;
 	isDemoSource: boolean;
 	testResults: SubmissionHistoryTestResult[];
 };
@@ -259,6 +260,7 @@ export class SubmissionHistoryRepository {
 				status: row.status,
 				submittedAt: row.submitted_at,
 				sourceFilename,
+				sourceStuffId: row.source_stuff_id,
 				isDemoSource: storagePath.startsWith("demo-history/"),
 				testResults: resultsBySubmission.get(row.id) ?? [],
 			};

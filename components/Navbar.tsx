@@ -1,8 +1,9 @@
 import Link from "next/link";
 
+import { Visitor } from "@/domain/user/Visitor";
 import { User } from "@/domain/user/User";
 import { Admin } from "@/domain/user/Admin";
-import { Visitor } from "@/domain/user/Visitor";
+import { Owner } from "@/domain/user/Owner";
 
 import styles from "./Navbar.module.css";
 import ThemeToggle from "./ThemeToggle";
@@ -14,6 +15,7 @@ type NavbarProps = {
 export default function Navbar({ user }: NavbarProps) {
 	const isUser = user instanceof User;
 	const canCreateAccount = user instanceof Admin;
+	const isOwner = user instanceof Owner;
 
 	return (
 		<nav className={styles.navbar}>
@@ -36,12 +38,9 @@ export default function Navbar({ user }: NavbarProps) {
 							History
 						</Link>
 
-						{canCreateAccount && (
-							<Link
-								href="/createaccount"
-								className={styles.link}
-							>
-								Create account
+						{isOwner && (
+							<Link href="/query-history" className={styles.link}>
+								Query History
 							</Link>
 						)}
 					</>
@@ -49,6 +48,15 @@ export default function Navbar({ user }: NavbarProps) {
 			</div>
 
 			<div className={styles.right}>
+				{canCreateAccount && (
+					<Link
+						href="/createaccount"
+						className={styles.link}
+					>
+						Create Account
+					</Link>
+				)}
+				
 				{isUser ? (
 					<>
 						<Link href="/account" className={styles.link}>

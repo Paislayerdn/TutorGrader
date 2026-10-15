@@ -62,9 +62,7 @@ export default function CreateAccountForm({
 	return (
 		<main className={styles.page}>
 			<section className={styles.card}>
-				<p className={styles.eyebrow}>ACCOUNT MANAGEMENT</p>
-
-				<h1>Create account</h1>
+				<h1>Create Account</h1>
 
 				<p className={styles.description}>
 					Create a new TutorGrader account.

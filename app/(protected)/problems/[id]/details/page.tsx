@@ -137,31 +137,27 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						</ul>
 					</section>
 
-					{canViewAttachments && (
+					{canViewAttachments && version.stuffs.length > 0 && (
 						<section className={styles.section}>
 							<h2>Attachments</h2>
 
-							{version.stuffs.length === 0 ? (
-								<p>No attachments.</p>
-							) : (
-								<ul className={styles.list}>
-									{version.stuffs.map(stuff => {
-										const filename =
-											stuff.storagePath
-												.replace(/\\/g, "/")
-												.split("/")
-												.pop() || "attachment";
+							<ul className={styles.list}>
+								{version.stuffs.map(stuff => {
+									const filename =
+										stuff.storagePath
+											.replace(/\\/g, "/")
+											.split("/")
+											.pop() || "attachment";
 
-										return (
-											<li key={stuff.id}>
-												<a href={`/api/stuff/${stuff.id}/download`}>
-													{filename}
-												</a>
-											</li>
-										);
-									})}
-								</ul>
-							)}
+									return (
+										<li key={stuff.id}>
+											<a href={`/api/stuff/${stuff.id}/download`}>
+												{filename}
+											</a>
+										</li>
+									);
+								})}
+							</ul>
 						</section>
 					)}
 				</div>

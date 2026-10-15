@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -19,7 +18,6 @@ function formatDate(value: string): string {
 	return `${new Date(value).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
-
 function formatStatus(status: string): string {
 	if (status === "PASS") return "Correct Output";
 	if (status === "WRONG_ANSWER") return "Incorrect Output";
@@ -31,10 +29,18 @@ function formatStatus(status: string): string {
 		.join(" ");
 }
 
-function getSubmissionLabel(status: string): string {
-	return status === "COMPLETED" ? "Complete" : "Incomplete";
-}
+function getSubmissionLabel(
+	submission: SubmissionHistoryItem | null,
+): string {
+	if (submission === null) {
+		return "Incomplete";
+	}
 
+	return submission.testResults.length > 0 &&
+		submission.testResults.every(result => result.status === "PASS")
+		? "Complete"
+		: "Incomplete";
+}
 
 function getPassedCount(submission: SubmissionHistoryItem): number {
 	return submission.testResults.filter(
@@ -118,6 +124,7 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 											? "attempt"
 											: "attempts"}
 									</span>
+
 									<span
 										className={styles.chevron}
 										data-expanded={expanded}
@@ -165,9 +172,13 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 											<div className={styles.submissionRight}>
 												<span
 													className={styles.submissionStatus}
-													data-status={submission.status}
+													data-status={
+														getSubmissionLabel(submission) === "Complete"
+															? "COMPLETED"
+															: "INCOMPLETE"
+													}
 												>
-													{getSubmissionLabel(submission.status)}
+													{getSubmissionLabel(submission)}
 												</span>
 
 												{submission.testResults.length > 0 && (
@@ -205,6 +216,7 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 						<header className={styles.modalHeader}>
 							<div>
 								<p className={styles.eyebrow}>SUBMISSION DETAILS</p>
+
 								<h2 id="submission-title" title={selected.id}>
 									Submission #{selected.id.slice(0, 6)}…
 								</h2>
@@ -223,12 +235,16 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 						<div className={styles.modalBody}>
 							<section className={styles.detailSection}>
 								<h3>Problem</h3>
+
 								<h4>
 									{selected.problemName}
+
 									<span className={styles.versionLine}>
-										{" · "}Submitted against version {selected.versionNumber}
+										{" · "}Submitted against version{" "}
+										{selected.versionNumber}
 									</span>
 								</h4>
+
 								<p className={styles.detailDescription}>
 									{selected.problemDescription ||
 										"No description provided."}
@@ -240,9 +256,13 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 
 								<span
 									className={styles.submissionStatus}
-									data-status={selected.status}
+									data-status={
+										getSubmissionLabel(selected) === "Complete"
+											? "COMPLETED"
+											: "INCOMPLETE"
+									}
 								>
-									{getSubmissionLabel(selected.status)}
+									{getSubmissionLabel(selected)}
 								</span>
 
 								<dl className={styles.metadata}>
@@ -250,14 +270,17 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 										<dt>Language</dt>
 										<dd>{selected.languageName}</dd>
 									</div>
+
 									<div>
 										<dt>Submitted</dt>
 										<dd>{formatDate(selected.submittedAt)}</dd>
 									</div>
+
 									<div>
 										<dt>Source file</dt>
 										<dd>{selected.sourceFilename}</dd>
 									</div>
+
 									{canViewAll && (
 										<div>
 											<dt>Submitted by</dt>
@@ -268,19 +291,28 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 
 								{selected.isDemoSource && (
 									<p className={styles.demoNotice}>
-										Demo fixture: the source file\'s metadata exists,
+										Demo fixture: the source file's metadata exists,
 										but its contents have not been uploaded.
 									</p>
 								)}
 
-								<button
-									type="button"
-									className={styles.downloadButton}
-									disabled
-									title="The source download endpoint is being added next."
-								>
-									Download Source
-								</button>
+								{selected.isDemoSource ? (
+									<button
+										type="button"
+										className={styles.downloadButton}
+										disabled
+										title="This demo source file has no uploaded contents."
+									>
+										Download Source
+									</button>
+								) : (
+									<a
+										href={`/api/submissions/${selected.id}/source`}
+										className={styles.downloadButton}
+									>
+										Download Source
+									</a>
+								)}
 							</section>
 
 							<section className={styles.detailSection}>
@@ -288,7 +320,8 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 
 								{selected.testResults.length === 0 ? (
 									<p className={styles.noResults}>
-										No per-test results have been recorded for this attempt.
+										No per-test results have been recorded for this
+										attempt.
 									</p>
 								) : (
 									<div className={styles.testTable}>
@@ -336,4 +369,3 @@ export default function HistoryClient({ groups, canViewAll }: Props) {
 		</>
 	);
 }
-

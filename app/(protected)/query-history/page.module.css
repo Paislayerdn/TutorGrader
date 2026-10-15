@@ -1,0 +1,109 @@
+
+.page {
+	min-height: 100vh;
+	padding: 80px 24px 48px;
+	background: var(--background);
+	color: var(--foreground);
+	font-family: var(--font-geist-sans);
+}
+
+.content {
+	width: 100%;
+	max-width: 1000px;
+	margin: 0 auto;
+}
+
+.header h1 {
+	margin: 0;
+	font-size: clamp(2rem, 5vw, 3rem);
+	letter-spacing: -0.04em;
+}
+
+.eyebrow {
+	margin: 0 0 10px;
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	opacity: 0.55;
+}
+
+.description {
+	margin: 12px 0 24px;
+	line-height: 1.6;
+	opacity: 0.7;
+}
+
+.searchForm {
+	display: flex;
+	align-items: stretch;
+	gap: 10px;
+	width: 100%;
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	padding: 12px 14px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface);
+	color: var(--foreground);
+	font: inherit;
+}
+
+.searchInput:focus-visible {
+	outline: 2px solid #2563eb;
+	outline-offset: 2px;
+}
+
+.searchButton {
+	padding: 12px 20px;
+	border: 0;
+	border-radius: 8px;
+	background: #2563eb;
+	color: white;
+	font: inherit;
+	font-weight: 650;
+	cursor: pointer;
+}
+
+.searchButton:hover {
+	background: #1d4ed8;
+}
+
+.message {
+	margin-top: 24px;
+	padding: 14px 16px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	line-height: 1.5;
+}
+
+.results {
+	margin-top: 36px;
+}
+
+.results h2 {
+	margin: 0;
+	font-size: 1.35rem;
+}
+
+.registeredName {
+	margin: 8px 0 24px;
+	opacity: 0.65;
+}
+
+@media (max-width: 600px) {
+	.page {
+		padding: 72px 16px 32px;
+	}
+
+	.searchForm {
+		flex-direction: column;
+	}
+
+	.searchButton {
+		width: 100%;
+	}
+}
+

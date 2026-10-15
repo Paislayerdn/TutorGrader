@@ -19,8 +19,8 @@ export default function Home() {
 
 					<p className={styles.description}>
 						TutorGrader is a learning and grading platform for
-						programming exercises, built to help students practice
-						and understand object-oriented programming.
+						programming exercises, built to help friends and close ones practice
+						and understand computer programming.
 					</p>
 				</section>
 

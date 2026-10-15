@@ -196,10 +196,6 @@
 	.actions {
 		justify-content: stretch;
 	}
-
-	.primaryButton {
-		width: 100%;
-	}
 }
 
 .formBox {
@@ -214,7 +210,20 @@
 
 .formActions {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
-	align-items: center;
+	width: 100%;
+	gap: 12px;
+	align-items: stretch;
+}
+
+.formActions > button {
+	flex: 1;
+	min-width: 0;
+}
+
+.formActions > button:first-child {
+	border-radius: 8px 0 0 8px;
+}
+
+.formActions > button:last-child {
+	border-radius: 0 8px 8px 0;
 }

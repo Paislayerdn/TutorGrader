@@ -16,7 +16,20 @@ export const PATCH = route(async (request: Request) => {
 	};
 
 	try {
-		body = await request.json();
+		const parsed: unknown = await request.json();
+
+		if (
+			typeof parsed !== "object" ||
+			parsed === null ||
+			Array.isArray(parsed)
+		) {
+			return NextResponse.json(
+				{ error: "Invalid request body." },
+				{ status: 400 },
+			);
+		}
+
+		body = parsed as typeof body;
 	} catch {
 		return NextResponse.json(
 			{ error: "Invalid JSON body." },
@@ -33,7 +46,7 @@ export const PATCH = route(async (request: Request) => {
 
 		default:
 			return NextResponse.json(
-				{ error: "Invalid account operation." },
+				{ error: "Invalid action." },
 				{ status: 400 },
 			);
 	}
@@ -45,7 +58,20 @@ export const POST = route(async (request: Request) => {
 	};
 
 	try {
-		body = await request.json();
+		const parsed: unknown = await request.json();
+
+		if (
+			typeof parsed !== "object" ||
+			parsed === null ||
+			Array.isArray(parsed)
+		) {
+			return NextResponse.json(
+				{ error: "Invalid request body." },
+				{ status: 400 },
+			);
+		}
+
+		body = parsed as typeof body;
 	} catch {
 		return NextResponse.json(
 			{ error: "Invalid JSON body." },
@@ -53,14 +79,12 @@ export const POST = route(async (request: Request) => {
 		);
 	}
 
-	switch (body.action) {
-		case "deactivate":
-			return handleDeactivate();
-
-		default:
-			return NextResponse.json(
-				{ error: "Invalid account operation." },
-				{ status: 400 },
-			);
+	if (body.action === "deactivate") {
+		return handleDeactivate();
 	}
+
+	return NextResponse.json(
+		{ error: "Invalid action." },
+		{ status: 400 },
+	);
 });

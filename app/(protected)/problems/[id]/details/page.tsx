@@ -11,7 +11,6 @@ import { isUuid } from "@/lib/isUuid";
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 import PublishProblemButton from "./PublishProblemButton";
 import DeleteDraftButton from "./DeleteDraftButton";
-import ChangeProblemStatus from "./ChangeProblemStatus";
 
 type Props = {
 	params: Promise<{
@@ -35,7 +34,12 @@ export default async function ProblemDetailsPage({ params }: Props) {
 	}
 
 	const isAdmin = user instanceof Admin;
-	const isDraft = problem.currentVersionNumber === null;
+	const canViewAttachments =
+		isAdmin || problem.status === ProblemStatus.ACTIVE;
+
+	const isDraft =
+		problem.currentVersionNumber === null ||
+		(problem.status === ProblemStatus.INACTIVE && problem.draft !== null);
 
 	if (!isAdmin) {
 		if (
@@ -74,33 +78,8 @@ export default async function ProblemDetailsPage({ params }: Props) {
 								status={isDraft ? "DRAFT" : problem.status}
 							/>
 
-							{isAdmin && (
-								<a
-									href={`/problems/${problem.id}/edit`}
-									className={styles.editButton}
-								>
-									Edit Problem
-								</a>
-							)}
-
-							{isAdmin && (
-								<>
-									{isDraft ? (
-										<PublishProblemButton problemId={problem.id} />
-									) : (
-										<ChangeProblemStatus
-											problemId={problem.id}
-											currentStatus={problem.status}
-										/>
-									)}
-
-									{problem.draft !== null && (
-										<DeleteDraftButton
-											problemId={problem.id}
-											isPublished={!isDraft}
-										/>
-									)}
-								</>
+							{isAdmin && isDraft && (
+								<PublishProblemButton problemId={problem.id} />
 							)}
 						</div>
 					</header>
@@ -158,45 +137,33 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						</ul>
 					</section>
 
-					<section className={styles.section}>
-						<h2>Requirements</h2>
+					{canViewAttachments && (
+						<section className={styles.section}>
+							<h2>Attachments</h2>
 
-						{version.requirements.length === 0 ? (
-							<p>No additional requirements.</p>
-						) : (
-							<ul className={styles.list}>
-								{version.requirements.map((requirement, index) => (
-									<li key={index}>{requirement}</li>
-								))}
-							</ul>
-						)}
-					</section>
+							{version.stuffs.length === 0 ? (
+								<p>No attachments.</p>
+							) : (
+								<ul className={styles.list}>
+									{version.stuffs.map(stuff => {
+										const filename =
+											stuff.storagePath
+												.replace(/\\/g, "/")
+												.split("/")
+												.pop() || "attachment";
 
-					<section className={styles.section}>
-						<h2>Attachments</h2>
-
-						{version.stuffs.length === 0 ? (
-							<p>No attachments.</p>
-						) : (
-							<ul className={styles.list}>
-								{version.stuffs.map(stuff => {
-									const filename =
-										stuff.storagePath
-											.replace(/\\/g, "/")
-											.split("/")
-											.pop() || "attachment";
-
-									return (
-										<li key={stuff.id}>
-											<a href={`/api/stuff/${stuff.id}/download`}>
-												{filename}
-											</a>
-										</li>
-									);
-								})}
-							</ul>
-						)}
-					</section>
+										return (
+											<li key={stuff.id}>
+												<a href={`/api/stuff/${stuff.id}/download`}>
+													{filename}
+												</a>
+											</li>
+										);
+									})}
+								</ul>
+							)}
+						</section>
+					)}
 				</div>
 			</section>
 		</main>

@@ -96,7 +96,6 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 	const memoryLimitKb = body.memoryLimitKb;
 	const outputComparison = body.outputComparison;
 	const languageIds = body.languageIds;
-	const requirements = body.requirements;
 	const testCases = body.testCases;
 	const existingStuffIds = body.existingStuffIds;
 
@@ -156,16 +155,6 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 	) {
 		return NextResponse.json(
 			{ error: "Select at least one valid language." },
-			{ status: 400 },
-		);
-	}
-
-	if (
-		!Array.isArray(requirements) ||
-		!requirements.every(value => typeof value === "string")
-	) {
-		return NextResponse.json(
-			{ error: "Invalid requirements." },
 			{ status: 400 },
 		);
 	}
@@ -313,7 +302,6 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 				p_memory_limit_kb: memoryLimitKb,
 				p_output_comparison: outputComparison,
 				p_language_ids: [...new Set(languageIds as number[])],
-				p_requirements: requirements as string[],
 				p_test_cases: testCases,
 				p_stuff_ids: [
 					...new Set([

@@ -1,3 +1,4 @@
+
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 import { Problem } from "./Problem";
@@ -15,7 +16,6 @@ export type CreateProblemDraftData = {
 	memoryLimitKb: number;
 	outputComparison: OutputComparison;
 	languageIds: number[];
-	requirements: string[];
 	testCases: TestCase[];
 	stuffIds?: string[];
 };
@@ -40,6 +40,7 @@ export type ProblemListItem = {
 	problemNumber: number;
 	status: ProblemStatus;
 	versionNumber: number;
+	draftVersionNumber: number | null;
 	name: string;
 	difficulty: string | null;
 	isDraft: boolean;
@@ -66,6 +67,11 @@ type DraftVersionListRow = {
 	difficulty: string | null;
 };
 
+type PublishedDraftRow = {
+	id: string;
+	current_draft_number: number;
+};
+
 export class ProblemRepository {
 	private static readonly PROBLEM_COLUMNS =
 		"id, status, current_version_number, current_draft_number, created_at, updated_at, created_by";
@@ -86,7 +92,6 @@ export class ProblemRepository {
 				p_memory_limit_kb: data.memoryLimitKb,
 				p_output_comparison: data.outputComparison,
 				p_language_ids: data.languageIds,
-				p_requirements: data.requirements,
 				p_test_cases: data.testCases.map(testCase => ({
 					input: testCase.input,
 					expected_output: testCase.expectedOutput,
@@ -116,7 +121,9 @@ export class ProblemRepository {
 		};
 	}
 
-	async openDraftForEditing(problemId: string): Promise<import("./version/ProblemVersion").ProblemVersion> {
+	async openDraftForEditing(
+		problemId: string,
+	): Promise<import("./version/ProblemVersion").ProblemVersion> {
 		const { data, error } = await supabaseAdmin.rpc(
 			"create_problem_edit_draft",
 			{
@@ -214,15 +221,49 @@ export class ProblemRepository {
 			problemNumber: row.problem_number,
 			status: row.status,
 			versionNumber: row.current_version_number,
+			draftVersionNumber: null,
 			name: row.name,
 			difficulty: row.difficulty,
 			isDraft: false,
 		}));
 
+		// Regular users never receive draft version numbers.
 		if (!canViewInactive) {
 			return items.sort((a, b) => a.problemNumber - b.problemNumber);
 		}
 
+		// Find drafts belonging to problems that already have a published version.
+		const publishedIds = items.map(item => item.id);
+
+		if (publishedIds.length > 0) {
+			const { data: publishedDrafts, error: publishedDraftError } =
+				await supabaseAdmin
+					.from("problem")
+					.select("id, current_draft_number")
+					.in("id", publishedIds)
+					.not("current_draft_number", "is", null);
+
+			if (publishedDraftError) {
+				console.error(
+					"Published problem draft lookup error:",
+					publishedDraftError,
+				);
+				throw new Error("Unable to load problem drafts.");
+			}
+
+			const draftNumbers = new Map(
+				((publishedDrafts ?? []) as PublishedDraftRow[]).map(row => [
+					row.id,
+					row.current_draft_number,
+				]),
+			);
+
+			for (const item of items) {
+				item.draftVersionNumber = draftNumbers.get(item.id) ?? null;
+			}
+		}
+
+		// Find draft-only problems for the Admin/Owner draft section.
 		const { data: draftProblems, error: draftError } =
 			await supabaseAdmin
 				.from("problem")
@@ -275,6 +316,7 @@ export class ProblemRepository {
 				problemNumber: 0,
 				status: ProblemStatus.INACTIVE,
 				versionNumber: version.version_number,
+				draftVersionNumber: version.version_number,
 				name: version.name,
 				difficulty: version.difficulty,
 				isDraft: true,
@@ -355,3 +397,4 @@ export class ProblemRepository {
 		}
 	}
 }
+

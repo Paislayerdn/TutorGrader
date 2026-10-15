@@ -81,7 +81,6 @@ export const POST = route(async (request: Request) => {
 	const memoryLimitKb = body.memoryLimitKb;
 	const outputComparison = body.outputComparison;
 	const languageIds = body.languageIds;
-	const requirements = body.requirements;
 	const rawTestCases = body.testCases;
 
 	if (!name) {
@@ -123,16 +122,6 @@ export const POST = route(async (request: Request) => {
 	) {
 		return NextResponse.json(
 			{ error: "Select at least one valid language." },
-			{ status: 400 },
-		);
-	}
-
-	if (
-		!Array.isArray(requirements) ||
-		!requirements.every(value => typeof value === "string")
-	) {
-		return NextResponse.json(
-			{ error: "Invalid requirements." },
 			{ status: 400 },
 		);
 	}
@@ -231,7 +220,6 @@ export const POST = route(async (request: Request) => {
 			memoryLimitKb,
 			outputComparison: outputComparison as OutputComparison,
 			languageIds: [...new Set(languageIds as number[])],
-			requirements: requirements as string[],
 			testCases: rawTestCases.map( testCase =>
 				new TestCase(
 					testCase.input as string,

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -8,11 +9,13 @@ import styles from "./page.module.css";
 type Props = {
 	problemId: string;
 	isPublished: boolean;
+	returnToProblems?: boolean;
 };
 
 export default function DeleteDraftButton({
 	problemId,
 	isPublished,
+	returnToProblems = false,
 }: Props) {
 	const router = useRouter();
 
@@ -60,9 +63,11 @@ export default function DeleteDraftButton({
 			}
 
 			router.push(
-				isPublished
-					? `/problems/${problemId}/details`
-					: "/problems",
+				returnToProblems
+					? "/problems"
+					: isPublished
+						? `/problems/${problemId}/details`
+						: "/problems",
 			);
 			router.refresh();
 		} catch (error) {

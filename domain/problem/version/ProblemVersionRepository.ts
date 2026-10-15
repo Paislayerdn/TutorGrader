@@ -26,10 +26,6 @@ type LanguageRow = {
 	language: string;
 };
 
-type RequirementRow = {
-	requirement: string;
-};
-
 type StuffRow = {
 	stuff_id: string;
 };
@@ -63,18 +59,11 @@ export class ProblemVersionRepository {
 
 		const [
 			languageResult,
-			requirementResult,
 			stuffResult,
 		] = await Promise.all([
 			supabaseAdmin
 				.from("problem_version_language_view")
 				.select("language")
-				.eq("problem_id", problemId)
-				.eq("version_number", versionNumber),
-
-			supabaseAdmin
-				.from("problem_version_requirement")
-				.select("requirement")
 				.eq("problem_id", problemId)
 				.eq("version_number", versionNumber),
 
@@ -87,12 +76,10 @@ export class ProblemVersionRepository {
 
 		if (
 			languageResult.error
-			|| requirementResult.error
 			|| stuffResult.error
 		) {
 			console.error("Problem version relationship lookup error:", {
 				languages: languageResult.error,
-				requirements: requirementResult.error,
 				stuffs: stuffResult.error,
 			});
 			throw new Error("Unable to load problem version details.");
@@ -101,10 +88,6 @@ export class ProblemVersionRepository {
 		const selectedLanguages = (
 			languageResult.data as LanguageRow[]
 		).map(row => row.language);
-
-		const requirements = (
-			requirementResult.data as RequirementRow[]
-		).map(item => item.requirement);
 
 		const stuffIds = (
 			stuffResult.data as StuffRow[]
@@ -143,7 +126,6 @@ export class ProblemVersionRepository {
 				? new Date(row.published_at)
 				: null,
 			resolvedLanguages,
-			requirements,
 			stuffs.filter(stuff => stuff !== null),
 		);
 	}

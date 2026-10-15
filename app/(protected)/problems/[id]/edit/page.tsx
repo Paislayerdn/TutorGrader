@@ -127,7 +127,6 @@ export default async function EditProblemPage({ params }: Props) {
 		memoryLimitKb: version.memoryLimitKb,
 		outputComparison: version.outputComparison,
 		languageIds: version.languages.map(language => language.id),
-		requirements: version.requirements,
 		testCases: testCases.map(testCase => ({
 			input: testCase.input,
 			expectedOutput: testCase.expected_output,

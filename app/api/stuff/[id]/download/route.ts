@@ -63,9 +63,15 @@ export const GET = route<Props>(async (_request, { params }) => {
 
 		if (!problem) continue;
 
-		if (!user.canViewProblem(problem)) continue;
+		const isPublishedVersion =
+			problem.currentVersionNumber === link.version_number &&
+			user.canDownloadProblem(problem);
 
-		if (problem.currentVersionNumber !== link.version_number) continue;
+		const isCurrentDraft =
+			user.canManageProblems &&
+			problem.draftVersionNumber === link.version_number;
+
+		if (!isPublishedVersion && !isCurrentDraft) continue;
 
 		hasAccess = true;
 		break;

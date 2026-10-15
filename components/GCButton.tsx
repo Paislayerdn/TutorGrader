@@ -24,7 +24,7 @@ export default function GCButton() {
 
 		try {
 			const response = await fetch(
-				"/api/admin/gc",
+				"/api/owner/gc",
 				{
 					method: "POST",
 				},

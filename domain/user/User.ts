@@ -2,6 +2,7 @@ import { Problem } from "@/domain/problem/Problem";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Visitor } from "./Visitor";
 import { UserData } from "./UserData";
+import { UserStatus } from "./UserStatus";
 import { Role } from "./Role";
 
 export class User extends Visitor {
@@ -17,9 +18,12 @@ export class User extends Visitor {
 	public override canViewProblem(problem: Problem): boolean {
 		return problem.isPublished && problem.status !== ProblemStatus.INACTIVE;
 	}
+	public override canDownloadProblem(problem: Problem): boolean {
+		return this.canViewProblem(problem) && problem.status === ProblemStatus.ACTIVE;
+	}
 	public get username(): string { return this.data.username; }
 	public get registeredName(): string { return this.data.registeredName; }
-	public get status(): string { return this.data.status; }
+	public get status(): UserStatus { return this.data.status; }
 	public get createdAt(): Date { return this.data.createdAt; }
 	public get passwordChangedAt(): Date | null { return this.data.passwordChangedAt; }
 	public get role(): Role { return "USER"; }

@@ -22,7 +22,6 @@ export class ProblemVersion {
 		public publishedAt: Date | null,
 
 		public languages: Language[],
-		public requirements: string[],
 		public stuffs: Stuff[],
 	) {}
 }

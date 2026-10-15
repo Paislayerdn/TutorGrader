@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 
 import styles from "./page.module.css";
@@ -8,21 +7,22 @@ import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { Admin } from "@/domain/user/Admin";
 import { Owner } from "@/domain/user/Owner";
 import GCButton from "@/components/GCButton";
-
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
+import ChangeProblemStatus from "./[id]/details/ChangeProblemStatus";
+import DeleteDraftButton from "./[id]/details/DeleteDraftButton";
 
 export default async function ProblemsPage() {
 	const user = await getCurrentVisitor();
-	const canCreateProblem = user instanceof Admin;
+	const canManageProblems = user instanceof Admin;
+	const isOwner = user instanceof Owner;
 
 	const problemRepository = new ProblemRepository();
 	const items = await problemRepository.findAllForListing(
-		canCreateProblem,
+		canManageProblems,
 	);
 
 	const draftProblems = items.filter(item => item.isDraft);
 	const publishedProblems = items.filter(item => !item.isDraft);
-	const isOwner = user instanceof Owner;
 
 	return (
 		<main className={styles.page}>
@@ -31,7 +31,7 @@ export default async function ProblemsPage() {
 					<h1>Problems</h1>
 
 					<div className={styles.headerActions}>
-						{canCreateProblem && (
+						{canManageProblems && (
 							<Link
 								href="/problems/create"
 								className={styles.createButton}
@@ -48,33 +48,50 @@ export default async function ProblemsPage() {
 					Choose a problem to view its statement and submit your solution.
 				</p>
 
-				{canCreateProblem && draftProblems.length > 0 && (
+				{canManageProblems && draftProblems.length > 0 && (
 					<section className={styles.section}>
 						<h2>Drafts</h2>
 
 						<div className={styles.list}>
 							{draftProblems.map(problem => (
-								<Link
+								<article
 									key={problem.id}
-									href={`/problems/${problem.id}/details`}
 									className={styles.problem}
 								>
-									<div className={styles.problemHeader}>
-										<h2>{problem.name}</h2>
+									<Link
+										href={`/problems/${problem.id}/details`}
+										className={styles.problemLink}
+									>
+										<div className={styles.problemHeader}>
+											<h2>{problem.name}</h2>
 
-										<div className={styles.problemMeta}>
-											<span className={styles.version}>
-												Draft · Version {problem.versionNumber}
-											</span>
-
-											<ProblemStatusBadge status="DRAFT" />
+											<div className={styles.problemMeta}>
+												<span className={styles.draftBadge}>
+													DRAFT {problem.versionNumber}
+												</span>
+											</div>
 										</div>
-									</div>
 
-									<p className={styles.difficulty}>
-										{problem.difficulty ?? "Unspecified difficulty"}
-									</p>
-								</Link>
+										<p className={styles.difficulty}>
+											{problem.difficulty ?? "Unspecified difficulty"}
+										</p>
+									</Link>
+
+									<div className={styles.problemActions}>
+										<Link
+											href={`/problems/${problem.id}/edit`}
+											className={styles.editButton}
+										>
+											Edit Problem
+										</Link>
+
+										<DeleteDraftButton
+											problemId={problem.id}
+											isPublished={false}
+											returnToProblems
+										/>
+									</div>
+								</article>
 							))}
 						</div>
 					</section>
@@ -90,29 +107,64 @@ export default async function ProblemsPage() {
 					) : (
 						<div className={styles.list}>
 							{publishedProblems.map(problem => (
-								<Link
+								<article
 									key={problem.id}
-									href={`/problems/${problem.id}/details`}
 									className={styles.problem}
 								>
-									<div className={styles.problemHeader}>
-										<h2>{problem.name}</h2>
+									<Link
+										href={`/problems/${problem.id}/details`}
+										className={styles.problemLink}
+									>
+										<div className={styles.problemHeader}>
+											<h2>{problem.name}</h2>
 
-										<div className={styles.problemMeta}>
-											<span className={styles.version}>
-												Version {problem.versionNumber}
-											</span>
+											<div className={styles.problemMeta}>
+												<span className={styles.versionBadge}>
+													VERSION {problem.versionNumber}
+												</span>
 
-											<ProblemStatusBadge
-												status={problem.status}
-											/>
+												{canManageProblems &&
+													problem.draftVersionNumber !== null && (
+														<span className={styles.draftBadge}>
+															DRAFT {problem.draftVersionNumber}
+														</span>
+													)}
+
+												<ProblemStatusBadge
+													status={problem.status}
+												/>
+											</div>
 										</div>
-									</div>
 
-									<p className={styles.difficulty}>
-										{problem.difficulty ?? "Unspecified difficulty"}
-									</p>
-								</Link>
+										<p className={styles.difficulty}>
+											{problem.difficulty ?? "Unspecified difficulty"}
+										</p>
+									</Link>
+
+									{canManageProblems && (
+										<div className={styles.problemActions}>
+											<ChangeProblemStatus
+												problemId={problem.id}
+												currentStatus={problem.status}
+											/>
+
+											<Link
+												href={`/problems/${problem.id}/edit`}
+												className={styles.editButton}
+											>
+												Edit Problem
+											</Link>
+
+											{problem.draftVersionNumber !== null && (
+												<DeleteDraftButton
+													problemId={problem.id}
+													isPublished
+													returnToProblems
+												/>
+											)}
+										</div>
+									)}
+								</article>
 							))}
 						</div>
 					)}
@@ -121,4 +173,3 @@ export default async function ProblemsPage() {
 		</main>
 	);
 }
-

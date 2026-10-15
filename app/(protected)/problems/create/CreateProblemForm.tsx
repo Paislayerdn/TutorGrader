@@ -27,11 +27,6 @@ type ExistingAttachment = {
 	filename: string;
 };
 
-type RequirementInput = {
-	id: number;
-	value: string;
-};
-
 type InitialData = {
 	problemId: string;
 	versionNumber: number;
@@ -41,7 +36,6 @@ type InitialData = {
 	timeLimitMs: number;
 	memoryLimitKb: number;
 	outputComparison: string;
-	requirements: string[];
 	languageIds: number[];
 	testCases: TestCaseInput[];
 	attachments: ExistingAttachment[];
@@ -57,7 +51,9 @@ export default function CreateProblemForm({
 	initialData,
 }: Props) {
 	const router = useRouter();
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [submittingIntent, setSubmittingIntent] = useState<
+		"save" | "publish" | null
+	>(null);
 
 	const [name, setName] = useState(initialData?.name ?? "");
 	const [description, setDescription] = useState(
@@ -76,12 +72,6 @@ export default function CreateProblemForm({
 		initialData?.outputComparison ?? "TRIM",
 	);
 
-	const [requirements, setRequirements] = useState<RequirementInput[]>(
-		(initialData?.requirements ?? []).map((value, index) => ({
-			id: index + 1,
-			value,
-		})),
-	);
 	const [selectedLanguages, setSelectedLanguages] = useState<number[]>(
 		initialData?.languageIds ?? [],
 	);
@@ -100,27 +90,6 @@ export default function CreateProblemForm({
 
 	const [error, setError] = useState("");
 	const [message, setMessage] = useState("");
-
-	function addRequirement() {
-		setRequirements((current) => [
-			...current,
-			{ id: Date.now() + Math.random(), value: "" },
-		]);
-	}
-
-	function updateRequirement(id: number, value: string) {
-		setRequirements((current) =>
-			current.map((item) =>
-				item.id === id ? { ...item, value } : item,
-			),
-		);
-	}
-
-	function removeRequirement(id: number) {
-		setRequirements((current) =>
-			current.filter((item) => item.id !== id),
-		);
-	}
 
 	function addLanguage() {
 		const id = Number(languageToAdd);
@@ -209,7 +178,7 @@ export default function CreateProblemForm({
 		setError("");
 		setMessage("");
 
-		if (isSubmitting) return;
+		if (submittingIntent !== null) return;
 
 		const trimmedName = name.trim();
 
@@ -235,7 +204,7 @@ export default function CreateProblemForm({
 			return;
 		}
 
-		setIsSubmitting(true);
+		setSubmittingIntent(shouldPublish ? "publish" : "save");
 
 		try {
 			const formData = new FormData();
@@ -258,9 +227,6 @@ export default function CreateProblemForm({
 					memoryLimitKb: Number(memoryLimitKb),
 					outputComparison,
 					languageIds: selectedLanguages,
-					requirements: requirements
-						.map((requirement) => requirement.value.trim())
-						.filter(Boolean),
 					testCases,
 				}),
 			);
@@ -330,7 +296,7 @@ export default function CreateProblemForm({
 					: "An unexpected error occurred while saving the draft.",
 			);
 		} finally {
-			setIsSubmitting(false);
+			setSubmittingIntent(null);
 		}
 	}
 
@@ -481,43 +447,6 @@ export default function CreateProblemForm({
 				</section>
 
 				<section className={styles.section}>
-					<div className={styles.sectionHeader}>
-						<h2>Requirements</h2>
-						<button
-							type="button"
-							className={styles.secondaryButton}
-							onClick={addRequirement}
-						>
-							+ Add requirement
-						</button>
-					</div>
-
-					{requirements.length === 0 && (
-						<p className={styles.hint}>No requirements added.</p>
-					)}
-
-					{requirements.map((requirement, index) => (
-						<div key={requirement.id} className={styles.itemRow}>
-							<input
-								aria-label={`Requirement ${index + 1}`}
-								value={requirement.value}
-								onChange={(event) =>
-									updateRequirement(requirement.id, event.target.value)
-								}
-								placeholder={`Requirement ${index + 1}`}
-							/>
-							<button
-								type="button"
-								className={styles.removeButton}
-								onClick={() => removeRequirement(requirement.id)}
-							>
-								Remove
-							</button>
-						</div>
-					))}
-				</section>
-
-				<section className={styles.section}>
 					<h2>Supported Languages</h2>
 
 					{selectedLanguages.length > 0 && (
@@ -650,9 +579,9 @@ export default function CreateProblemForm({
 					name="intent"
 					value="save"
 					className={styles.secondaryButton}
-					disabled={isSubmitting}
+					disabled={submittingIntent !== null}
 				>
-					{isSubmitting ? "Saving..." : "Save Draft"}
+					{submittingIntent === "save" ? "Saving..." : "Save Draft"}
 				</button>
 
 				{initialData && (
@@ -661,9 +590,9 @@ export default function CreateProblemForm({
 						name="intent"
 						value="publish"
 						className={styles.primaryButton}
-						disabled={isSubmitting}
+						disabled={submittingIntent !== null}
 					>
-						{isSubmitting ? "Publishing..." : "Publish"}
+						{submittingIntent === "publish" ? "Publishing..." : "Publish"}
 					</button>
 				)}
 			</div>

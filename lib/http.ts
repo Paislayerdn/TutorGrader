@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Admin } from "@/domain/user/Admin";
 import { User } from "@/domain/user/User";
 import { getCurrentVisitor } from "@/lib/auth";
 
@@ -22,14 +21,14 @@ export async function requireApiUser(): Promise<User> {
 	return visitor;
 }
 
-export async function requireApiAdmin(): Promise<Admin> {
+export async function requireApiAdmin(): Promise<User> {
 	const user = await requireApiUser();
 
 	if (!user.canManageProblems) {
 		throw new HttpError(403, "Forbidden.");
 	}
 
-	return user as Admin;
+	return user;
 }
 
 export function route<C>(

@@ -22,9 +22,12 @@ export default function ChangeProblemStatus({
 	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState("");
 
-	async function handleSave() {
-		if (isSaving) return;
+	async function handleChange(nextStatus: ProblemStatus) {
+		if (isSaving || nextStatus === status) return;
 
+		const previousStatus = status;
+
+		setStatus(nextStatus);
 		setIsSaving(true);
 		setError("");
 
@@ -36,7 +39,7 @@ export default function ChangeProblemStatus({
 					headers: {
 						"Content-Type": "application/json",
 					},
-					body: JSON.stringify({ status }),
+					body: JSON.stringify({ status: nextStatus }),
 				},
 			);
 
@@ -56,6 +59,8 @@ export default function ChangeProblemStatus({
 
 			router.refresh();
 		} catch (error) {
+			setStatus(previousStatus);
+
 			setError(
 				error instanceof Error
 					? error.message
@@ -72,25 +77,21 @@ export default function ChangeProblemStatus({
 				className={styles.statusSelect}
 				value={status}
 				onChange={event =>
-					setStatus(event.target.value as ProblemStatus)
+					handleChange(event.target.value as ProblemStatus)
 				}
 				disabled={isSaving}
+				aria-label="Problem status"
 			>
 				<option value={ProblemStatus.ACTIVE}>ACTIVE</option>
 				<option value={ProblemStatus.FIXING}>FIXING</option>
 				<option value={ProblemStatus.INACTIVE}>INACTIVE</option>
 			</select>
 
-			<button
-				type="button"
-				className={styles.statusSaveButton}
-				onClick={handleSave}
-				disabled={isSaving || status === currentStatus}
-			>
-				{isSaving ? "Saving..." : "Save Status"}
-			</button>
-
-			{error && <p className={styles.statusError}>{error}</p>}
+			{error && (
+				<p className={styles.statusError}>
+					{error}
+				</p>
+			)}
 		</div>
 	);
 }

@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
-import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { Admin } from "@/domain/user/Admin";
+import { requireApiAdmin, route } from "@/lib/http";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { StuffRepository, type CreateStuffData } from "@/domain/stuff/StuffRepository";
 import { TestCase } from "@/domain/problem/TestCase";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
+import { isAllowedAttachment } from "@/lib/attachment-validation";
 
 export const runtime = "nodejs";
 
@@ -35,22 +35,8 @@ function sanitizeFilename(filename: string): string {
 		: "attachment";
 }
 
-export async function POST(request: Request) {
-	const currentUser = await getCurrentVisitor();
-
-	if (!currentUser) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 },
-		);
-	}
-
-	if (!(currentUser instanceof Admin)) {
-		return NextResponse.json(
-			{ error: "You do not have permission to create problems." },
-			{ status: 403 },
-		);
-	}
+export const POST = route(async (request: Request) => {
+	const currentUser = await requireApiAdmin();
 
 	let body: Record<string, unknown>;
 	let files: File[];
@@ -180,10 +166,7 @@ export async function POST(request: Request) {
 	for (const file of files) {
 		const filename = sanitizeFilename(file.name);
 		const extension = extname(filename).toLowerCase();
-		const isPdf = file.type === "application/pdf" && extension === ".pdf";
-		const isImage = file.type.startsWith("image/") && extension !== ".pdf";
-
-		if (!isPdf && !isImage) {
+		if (!isAllowedAttachment(filename, file.type)) {
 			return NextResponse.json(
 				{ error: `Unsupported file type: ${filename}` },
 				{ status: 400 },
@@ -290,12 +273,8 @@ export async function POST(request: Request) {
 		}
 
 		return NextResponse.json(
-			{
-				error: error instanceof Error
-					? error.message
-					: "Unable to create problem draft.",
-			},
+			{ error: "Unable to create problem draft." },
 			{ status: 500 },
 		);
 	}
-}
+});

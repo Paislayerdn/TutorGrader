@@ -1,9 +1,7 @@
-
 import { NextResponse } from "next/server";
 
-import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { Admin } from "@/domain/user/Admin";
+import { requireApiAdmin, route } from "@/lib/http";
 import { isUuid } from "@/lib/isUuid";
 
 export const runtime = "nodejs";
@@ -14,22 +12,8 @@ type Props = {
 	}>;
 };
 
-export async function POST(_request: Request, { params }: Props) {
-	const user = await getCurrentVisitor();
-
-	if (!user) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 },
-		);
-	}
-
-	if (!(user instanceof Admin)) {
-		return NextResponse.json(
-			{ error: "You do not have permission to publish problems." },
-			{ status: 403 },
-		);
-	}
+export const POST = route<Props>(async (_request: Request, { params }) => {
+	const user = await requireApiAdmin();
 
 	const { id } = await params;
 	const problemId = id;
@@ -73,5 +57,4 @@ export async function POST(_request: Request, { params }: Props) {
 		problemId,
 		versionNumber: published.version_number,
 	});
-}
-
+});

@@ -7,9 +7,31 @@ import { createSession } from "@/lib/session";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-	try {
-		const body = await request.json();
+	let body: Record<string, unknown>;
 
+	try {
+		const parsed: unknown = await request.json();
+
+		if (
+			typeof parsed !== "object" ||
+			parsed === null ||
+			Array.isArray(parsed)
+		) {
+			return NextResponse.json(
+				{ error: "Invalid request body." },
+				{ status: 400 },
+			);
+		}
+
+		body = parsed as Record<string, unknown>;
+	} catch {
+		return NextResponse.json(
+			{ error: "Invalid request body." },
+			{ status: 400 },
+		);
+	}
+
+	try {
 		const username =
 			typeof body.username === "string"
 				? body.username.trim()
@@ -26,11 +48,17 @@ export async function POST(request: Request) {
 				{ status: 400 }
 			);
 		}
+		if (!/^[A-Za-z0-9_]+$/.test(username)) {
+			return NextResponse.json(
+				{ error: "Invalid username or password." },
+				{ status: 401 },
+			);
+		}
 
 		const { data: user, error } = await supabaseAdmin
 			.from("app_user")
 			.select("id, password_hash, status")
-			.eq("username", username)
+			.ilike("username", username.replace(/_/g, "\\_"))
 			.maybeSingle();
 
 		if (error) {

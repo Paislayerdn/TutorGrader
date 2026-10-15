@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentVisitor } from "@/lib/auth";
+import { requireApiUser, route } from "@/lib/http";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { StuffRepository } from "@/domain/stuff/StuffRepository";
-import { ProblemStatus } from "@/domain/problem/ProblemStatus";
-import { Admin } from "@/domain/user/Admin";
+import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 
 export const runtime = "nodejs";
 
 const stuffRepository = new StuffRepository();
+const problemRepository = new ProblemRepository();
 
 type Props = {
 	params: Promise<{
@@ -17,19 +17,12 @@ type Props = {
 };
 
 type ProblemVersionLink = {
-	problem_id: number;
+	problem_id: string;
 	version_number: number;
 };
 
-export async function GET(_request: Request, { params }: Props) {
-	const user = await getCurrentVisitor();
-
-	if (!user) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 },
-		);
-	}
+export const GET = route<Props>(async (_request, { params }) => {
+	const user = await requireApiUser();
 
 	const { id } = await params;
 
@@ -63,54 +56,19 @@ export async function GET(_request: Request, { params }: Props) {
 		);
 	}
 
-	const isAdmin = user instanceof Admin;
 	let hasAccess = false;
 
 	for (const link of links as ProblemVersionLink[]) {
-		const { data: problem, error: problemError } = await supabaseAdmin
-			.from("problem")
-			.select("status")
-			.eq("id", link.problem_id)
-			.maybeSingle();
-
-		if (problemError) {
-			console.error("Problem access lookup error:", problemError);
-
-			return NextResponse.json(
-				{ error: "Unable to verify attachment access." },
-				{ status: 500 },
-			);
-		}
+		const problem = await problemRepository.findById(link.problem_id);
 
 		if (!problem) continue;
 
-		if (isAdmin) {
-			hasAccess = true;
-			break;
-		}
+		if (!user.canViewProblem(problem)) continue;
 
-		if (problem.status !== ProblemStatus.ACTIVE) continue;
+		if (problem.currentVersionNumber !== link.version_number) continue;
 
-		const { data: version, error: versionError } = await supabaseAdmin
-			.from("problem_version")
-			.select("status")
-			.eq("problem_id", link.problem_id)
-			.eq("version_number", link.version_number)
-			.maybeSingle();
-
-		if (versionError) {
-			console.error("Problem version access lookup error:", versionError);
-
-			return NextResponse.json(
-				{ error: "Unable to verify attachment access." },
-				{ status: 500 },
-			);
-		}
-
-		if (version?.status === "PUBLISHED") {
-			hasAccess = true;
-			break;
-		}
+		hasAccess = true;
+		break;
 	}
 
 	if (!hasAccess) {
@@ -146,4 +104,4 @@ export async function GET(_request: Request, { params }: Props) {
 			"X-Content-Type-Options": "nosniff",
 		},
 	});
-}
+});

@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentVisitor } from "@/lib/auth";
-import { Owner } from "@/domain/user/Owner";
+import { requireApiUser, route } from "@/lib/http";
 
 export const runtime = "nodejs";
 
-export async function POST() {
-	const user = await getCurrentVisitor();
+export const POST = route(async () => {
+	const user = await requireApiUser();
 
-	if (!user) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 },
-		);
-	}
-
-	if (!(user instanceof Owner)) {
+	if (!user.canRunGarbageCollection) {
 		return NextResponse.json(
 			{ error: "Owner permission required." },
 			{ status: 403 },
@@ -62,4 +54,4 @@ export async function POST() {
 			{ status: 502 },
 		);
 	}
-}
+});

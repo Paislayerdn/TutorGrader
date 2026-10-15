@@ -1,36 +1,58 @@
 import { NextResponse } from "next/server";
 import argon2 from "argon2";
 
-import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { Admin } from "@/domain/user/Admin";
-import { Owner } from "@/domain/user/Owner";
+import { requireApiAdmin, route } from "@/lib/http";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
-	const currentUser = await getCurrentVisitor();
+export const POST = route(async (request: Request) => {
+	const currentUser = await requireApiAdmin();
 
-	if (!currentUser) {
+	let body: Record<string, unknown>;
+
+	try {
+		const parsed: unknown = await request.json();
+
+		if (
+			typeof parsed !== "object" ||
+			parsed === null ||
+			Array.isArray(parsed)
+		) {
+			throw new Error("Invalid request body.");
+		}
+
+		body = parsed as Record<string, unknown>;
+	} catch {
 		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 }
+			{ error: "Invalid request body." },
+			{ status: 400 },
 		);
 	}
 
-	if (!(currentUser instanceof Admin)) {
-		return NextResponse.json(
-			{ error: "You do not have permission to create accounts." },
-			{ status: 403 }
-		);
-	}
+	const username =
+		typeof body.username === "string"
+			? body.username.trim()
+			: "";
 
-	const body = await request.json();
+	const registeredName =
+		typeof body.registeredName === "string"
+			? body.registeredName.trim()
+			: "";
 
-	const username = body.username?.trim();
-	const registeredName = body.registeredName?.trim();
-	const password = body.password;
+	const password =
+		typeof body.password === "string"
+			? body.password
+			: "";
+
 	const requestedRole = body.role;
+	
+	if (!/^[A-Za-z0-9_]+$/.test(username)) {
+		return NextResponse.json(
+			{ error: "Username may contain only English letters, numbers, and underscores." },
+			{ status: 400 },
+		);
+	}
 
 	if (!username || !registeredName || !password) {
 		return NextResponse.json(
@@ -46,10 +68,10 @@ export async function POST(request: Request) {
 		);
 	}
 
-	if (!(currentUser instanceof Owner) && requestedRole !== "USER") {
+	if (!currentUser.canCreateAccountWithRole(requestedRole)) {
 		return NextResponse.json(
-			{ error: "Admins can only create USER accounts." },
-			{ status: 403 }
+			{ error: "You do not have permission to create this account role." },
+			{ status: 403 },
 		);
 	}
 
@@ -86,4 +108,4 @@ export async function POST(request: Request) {
 	}
 
 	return NextResponse.json({ user: data }, { status: 201 });
-}
+});

@@ -1,15 +1,11 @@
-import { Admin } from "./Admin";
-import { UserData } from "./UserData";
 import { Role } from "./Role";
+import { Admin } from "./Admin";
 
 export class Owner extends Admin {
-	constructor(
-		id: string,
-		data: UserData,
-		createdById: string,
-	) {
-		super(id, data, createdById);
+	public override canCreateAccountWithRole(role: Role): boolean {
+		return role === "USER" || role === "ADMIN";
 	}
 
+	public override get canRunGarbageCollection(): boolean { return true; }
 	public override get role(): Role { return "OWNER"; }
 }

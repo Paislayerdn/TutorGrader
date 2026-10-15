@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { isAllowedAttachment } from "@/lib/attachment-validation";
 
 import styles from "./CreateProblemForm.module.css";
 
@@ -143,10 +144,7 @@ export default function CreateProblemForm({
 		const rejected: string[] = [];
 
 		for (const file of Array.from(fileList)) {
-			const isPdf = file.type === "application/pdf";
-			const isImage = file.type.startsWith("image/");
-
-			if (!isPdf && !isImage) {
+			if (!isAllowedAttachment(file.name, file.type)) {
 				rejected.push(file.name);
 				continue;
 			}
@@ -429,7 +427,7 @@ export default function CreateProblemForm({
 						+ Add file
 						<input
 							type="file"
-							accept=".pdf,image/*"
+							accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.bmp"
 							multiple
 							className={styles.hiddenInput}
 							onChange={(event) => {

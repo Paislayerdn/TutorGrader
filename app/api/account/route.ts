@@ -1,13 +1,28 @@
 import { NextResponse } from "next/server";
 
+import { route } from "@/lib/http";
 import { handleUsername } from "./routeUsername";
 import { handlePassword } from "./routePassword";
 import { handleDeactivate } from "./routeDeactivate";
 
 export const runtime = "nodejs";
 
-export async function PATCH(request: Request) {
-	const body = await request.json();
+export const PATCH = route(async (request: Request) => {
+	let body: {
+		action?: string;
+		username?: string;
+		currentPassword?: string;
+		newPassword?: string;
+	};
+
+	try {
+		body = await request.json();
+	} catch {
+		return NextResponse.json(
+			{ error: "Invalid JSON body." },
+			{ status: 400 },
+		);
+	}
 
 	switch (body.action) {
 		case "username":
@@ -19,13 +34,24 @@ export async function PATCH(request: Request) {
 		default:
 			return NextResponse.json(
 				{ error: "Invalid account operation." },
-				{ status: 400 }
+				{ status: 400 },
 			);
 	}
-}
+});
 
-export async function POST(request: Request) {
-	const body = await request.json();
+export const POST = route(async (request: Request) => {
+	let body: {
+		action?: string;
+	};
+
+	try {
+		body = await request.json();
+	} catch {
+		return NextResponse.json(
+			{ error: "Invalid JSON body." },
+			{ status: 400 },
+		);
+	}
 
 	switch (body.action) {
 		case "deactivate":
@@ -34,7 +60,7 @@ export async function POST(request: Request) {
 		default:
 			return NextResponse.json(
 				{ error: "Invalid account operation." },
-				{ status: 400 }
+				{ status: 400 },
 			);
 	}
-}
+});

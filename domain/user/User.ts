@@ -1,3 +1,5 @@
+import { Problem } from "@/domain/problem/Problem";
+import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { Visitor } from "./Visitor";
 import { UserData } from "./UserData";
 import { Role } from "./Role";
@@ -12,6 +14,9 @@ export class User extends Visitor {
 	}
 
 	public override get isAuthenticated(): boolean { return true; }
+	public override canViewProblem(problem: Problem): boolean {
+		return problem.isPublished && problem.status !== ProblemStatus.INACTIVE;
+	}
 	public get username(): string { return this.data.username; }
 	public get registeredName(): string { return this.data.registeredName; }
 	public get status(): string { return this.data.status; }

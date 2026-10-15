@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { requireUser } from "@/lib/auth-guards";
+import { requireApiUser } from "@/lib/http";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function handleUsername(body: {
 	username?: string;
 }) {
-	const user = await requireUser();
+	const user = await requireApiUser();
 
 	const username = body.username?.trim();
 

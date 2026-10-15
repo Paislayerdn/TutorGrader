@@ -94,7 +94,8 @@ export default async function EditProblemPage({ params }: Props) {
 				)
 			`)
 			.eq("problem_id", id)
-			.eq("version_number", draft.version_number);
+			.eq("version_number", draft.version_number)
+			.order("order", { ascending: true });
 
 	if (testCaseError) {
 		console.error("Unable to load draft test cases:", testCaseError);

@@ -44,34 +44,54 @@ export async function createSession(userId: string) {
 export async function getSessionStatus(): Promise<{
 	status: SessionStatus;
 	userId: string | null;
+	issuedAt: number | null;
 }> {
 	const cookieStore = await cookies();
 	const token = cookieStore.get(COOKIE_NAME)?.value;
 
 	if (!token) {
-		return { status: "missing", userId: null };
+		return {
+			status: "missing",
+			userId: null,
+			issuedAt: null,
+		};
 	}
 
 	try {
 		const { payload } = await jwtVerify(token, getSecret());
 
 		if (typeof payload.userId !== "string") {
-			return { status: "invalid", userId: null };
+			return {
+				status: "invalid",
+				userId: null,
+				issuedAt: null,
+			};
 		}
 
 		return {
 			status: "authenticated",
 			userId: payload.userId,
+			issuedAt: typeof payload.iat === "number"
+				? payload.iat
+				: null,
 		};
 	} catch (error) {
 		if (
 			error instanceof Error &&
 			error.name === "JWTExpired"
 		) {
-			return { status: "expired", userId: null };
+			return {
+				status: "expired",
+				userId: null,
+				issuedAt: null,
+			};
 		}
 
-		return { status: "invalid", userId: null };
+		return {
+			status: "invalid",
+			userId: null,
+			issuedAt: null,
+		};
 	}
 }
 

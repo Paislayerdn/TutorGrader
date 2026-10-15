@@ -1,14 +1,11 @@
-import { User } from "./User";
-import { UserData } from "./UserData";
 import { Role } from "./Role";
+import { User } from "./User";
 
 export class Admin extends User {
-	constructor(
-		id: string,
-		data: UserData,
-		createdById: string,
-	) {
-		super(id, data, createdById);
+	public override canViewProblem(): boolean { return true; }
+	public override get canManageProblems(): boolean { return true; }
+	public override canCreateAccountWithRole(role: Role): boolean {
+		return role === "USER";
 	}
 
 	public override get role(): Role { return "ADMIN"; }

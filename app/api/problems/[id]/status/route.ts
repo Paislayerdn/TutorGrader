@@ -1,24 +1,16 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentVisitor } from "@/lib/auth";
+import { requireApiAdmin, route } from "@/lib/http";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
-import { Admin } from "@/domain/user/Admin";
 import { isUuid } from "@/lib/isUuid";
 
 type Props = {
 	params: Promise<{ id: string }>;
 };
 
-export async function PATCH(request: Request, { params }: Props) {
-	const user = await getCurrentVisitor();
-
-	if (!(user instanceof Admin)) {
-		return NextResponse.json(
-			{ error: "Only admins can change problem status." },
-			{ status: 403 },
-		);
-	}
+export const PATCH = route<Props>(async (request: Request, { params }) => {
+	await requireApiAdmin();
 
 	const { id } = await params;
 
@@ -46,7 +38,16 @@ export async function PATCH(request: Request, { params }: Props) {
 		);
 	}
 
-	const body: unknown = await request.json();
+	let body: unknown;
+
+	try {
+		body = await request.json();
+	} catch {
+		return NextResponse.json(
+			{ error: "Invalid request body." },
+			{ status: 400 },
+		);
+	}
 
 	if (
 		typeof body !== "object" ||
@@ -80,4 +81,4 @@ export async function PATCH(request: Request, { params }: Props) {
 			{ status: 500 },
 		);
 	}
-}
+});

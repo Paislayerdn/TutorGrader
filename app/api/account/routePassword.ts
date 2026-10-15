@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import argon2 from "argon2";
 
-import { requireUser } from "@/lib/auth-guards";
+import { requireApiUser } from "@/lib/http";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createSession } from "@/lib/session";
 
 export async function handlePassword(body: {
 	currentPassword?: string;
 	newPassword?: string;
 }) {
-	const user = await requireUser();
+	const user = await requireApiUser();
 
 	const currentPassword = body.currentPassword;
 	const newPassword = body.newPassword;
@@ -77,6 +78,7 @@ export async function handlePassword(body: {
 			{ status: 500 }
 		);
 	}
+	await createSession(user.id);
 
 	return NextResponse.json({
 		success: true,

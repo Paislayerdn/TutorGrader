@@ -14,4 +14,5 @@ export class Problem {
 
 	public get currentVersionNumber(): number | null { return this.currentVersion?.versionNumber ?? null; }
 	public get draftVersionNumber(): number | null { return this.draft?.versionNumber ?? null; }
+	public get isPublished(): boolean { return this.currentVersion !== null; }
 }

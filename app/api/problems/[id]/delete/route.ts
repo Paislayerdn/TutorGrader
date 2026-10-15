@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentVisitor } from "@/lib/auth";
+import { requireApiAdmin, route } from "@/lib/http";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
-import { Admin } from "@/domain/user/Admin";
 import { isUuid } from "@/lib/isUuid";
 
 type Props = {
@@ -14,15 +13,8 @@ type Props = {
 
 const problemRepository = new ProblemRepository();
 
-export async function DELETE(request: Request, { params }: Props) {
-	const currentUser = await getCurrentVisitor();
-
-	if (!(currentUser instanceof Admin)) {
-		return NextResponse.json(
-			{ error: "You do not have permission to delete problems." },
-			{ status: 403 },
-		);
-	}
+export const DELETE = route<Props>(async (_request: Request, { params }) => {
+	await requireApiAdmin();
 
 	const { id } = await params;
 
@@ -80,13 +72,8 @@ export async function DELETE(request: Request, { params }: Props) {
 		console.error("Problem draft deletion error:", error);
 
 		return NextResponse.json(
-			{
-				error:
-					error instanceof Error
-						? error.message
-						: "Unable to delete problem draft.",
-			},
+			{ error: "Unable to delete problem draft." },
 			{ status: 500 },
 		);
 	}
-}
+});

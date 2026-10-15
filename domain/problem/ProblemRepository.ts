@@ -97,9 +97,7 @@ export class ProblemRepository {
 
 		if (error) {
 			console.error("Problem draft creation RPC failed:", error);
-			throw new Error(
-				`Unable to create problem draft: ${error.message} (code: ${error.code})`,
-			);
+			throw new Error("Unable to create problem draft.");
 		}
 
 		const created = result?.[0];

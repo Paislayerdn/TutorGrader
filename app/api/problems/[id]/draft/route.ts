@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
-import { getCurrentVisitor } from "@/lib/auth";
+import { requireApiAdmin, route } from "@/lib/http";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { Admin } from "@/domain/user/Admin";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { StuffRepository, type CreateStuffData, } from "@/domain/stuff/StuffRepository";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 import { ProblemVersionStatus } from "@/domain/problem/version/ProblemVersionStatus";
+import { isAllowedAttachment } from "@/lib/attachment-validation";
 import { isUuid } from "@/lib/isUuid";
 
 export const runtime = "nodejs";
@@ -40,22 +40,8 @@ function sanitizeFilename(filename: string): string {
 		: "attachment";
 }
 
-export async function PUT(request: Request, { params }: Props) {
-	const user = await getCurrentVisitor();
-
-	if (!user) {
-		return NextResponse.json(
-			{ error: "Unauthorized." },
-			{ status: 401 },
-		);
-	}
-
-	if (!(user instanceof Admin)) {
-		return NextResponse.json(
-			{ error: "You do not have permission to edit problems." },
-			{ status: 403 },
-		);
-	}
+export const PUT = route<Props>(async (request: Request, { params }) => {
+	const user = await requireApiAdmin();
 
 	const { id } = await params;
 	const problemId = id;
@@ -223,11 +209,7 @@ export async function PUT(request: Request, { params }: Props) {
 	for (const file of files) {
 		const filename = sanitizeFilename(file.name);
 		const extension = extname(filename).toLowerCase();
-		const isPdf = file.type === "application/pdf" && extension === ".pdf";
-		const isImage =
-			file.type.startsWith("image/") && extension !== ".pdf";
-
-		if (!isPdf && !isImage) {
+		if (!isAllowedAttachment(filename, file.type)) {
 			return NextResponse.json(
 				{ error: `Unsupported file type: ${filename}` },
 				{ status: 400 },
@@ -387,12 +369,8 @@ export async function PUT(request: Request, { params }: Props) {
 		}
 
 		return NextResponse.json(
-			{
-				error: error instanceof Error
-					? error.message
-					: "Unable to save the problem draft.",
-			},
+			{ error: "Unable to save the problem draft." },
 			{ status: 500 },
 		);
 	}
-}
+});

@@ -22,6 +22,7 @@ export type SubmissionHistoryItem = {
 	sourceFilename: string;
 	sourceStuffId: string;
 	isDemoSource: boolean;
+	compileDiagnostic: string | null;
 	testResults: SubmissionHistoryTestResult[];
 };
 
@@ -68,6 +69,7 @@ type UserRow = {
 type StuffRow = {
 	id: string;
 	storage_path: string;
+	original_filename: string | null;
 };
 
 type TestResultRow = {
@@ -78,10 +80,15 @@ type TestResultRow = {
 	memory_usage_kb: number | null;
 };
 
+type CompileErrorRow = {
+	submission_id: string;
+	diagnostic: string;
+};
+
 export class SubmissionHistoryRepository {
 	async findHistory(
 		userId: string,
-		canViewAll: boolean,
+		problemId?: string,
 	): Promise<SubmissionHistoryGroup[]> {
 		let query = supabaseAdmin
 			.from("submission")
@@ -91,8 +98,10 @@ export class SubmissionHistoryRepository {
 			.order("submitted_at", { ascending: false })
 			.limit(500);
 
-		if (!canViewAll) {
-			query = query.eq("user_id", userId);
+		query = query.eq("user_id", userId);
+
+		if (problemId) {
+			query = query.eq("problem_id", problemId);
 		}
 
 		const { data: submissionData, error: submissionError } = await query;
@@ -125,6 +134,7 @@ export class SubmissionHistoryRepository {
 			userResult,
 			stuffResult,
 			testResult,
+			compileErrorResult,
 		] = await Promise.all([
 			supabaseAdmin
 				.from("problem_version")
@@ -148,7 +158,7 @@ export class SubmissionHistoryRepository {
 
 			supabaseAdmin
 				.from("stuff")
-				.select("id, storage_path")
+				.select("id, storage_path, original_filename")
 				.in("id", stuffIds),
 
 			supabaseAdmin
@@ -158,6 +168,11 @@ export class SubmissionHistoryRepository {
 				)
 				.in("submission_id", submissionIds)
 				.order("test_case_order", { ascending: true }),
+
+			supabaseAdmin
+				.from("submission_compile_error")
+				.select("submission_id, diagnostic")
+				.in("submission_id", submissionIds),
 		]);
 
 		if (
@@ -166,7 +181,8 @@ export class SubmissionHistoryRepository {
 			languageResult.error ||
 			userResult.error ||
 			stuffResult.error ||
-			testResult.error
+			testResult.error ||
+			compileErrorResult.error
 		) {
 			console.error("Submission history relationship lookup failed.");
 			throw new Error("Unable to load submission history details.");
@@ -178,6 +194,8 @@ export class SubmissionHistoryRepository {
 		const users = (userResult.data ?? []) as UserRow[];
 		const stuffs = (stuffResult.data ?? []) as StuffRow[];
 		const testResults = (testResult.data ?? []) as TestResultRow[];
+		const compileErrors = (compileErrorResult.data ??
+			[]) as CompileErrorRow[];
 
 		const versionByKey = new Map(
 			versions.map(version => [
@@ -203,6 +221,13 @@ export class SubmissionHistoryRepository {
 
 		const stuffById = new Map(
 			stuffs.map(stuff => [stuff.id, stuff]),
+		);
+
+		const compileDiagnosticBySubmission = new Map(
+			compileErrors.map(row => [
+				row.submission_id,
+				row.diagnostic,
+			]),
 		);
 
 		const resultsBySubmission = new Map<
@@ -245,6 +270,7 @@ export class SubmissionHistoryRepository {
 			const stuff = stuffById.get(row.source_stuff_id);
 			const storagePath = stuff?.storage_path ?? "";
 			const sourceFilename =
+				stuff?.original_filename ||
 				storagePath.replace(/\\/g, "/").split("/").pop() ||
 				"Source file";
 
@@ -262,6 +288,8 @@ export class SubmissionHistoryRepository {
 				sourceFilename,
 				sourceStuffId: row.source_stuff_id,
 				isDemoSource: storagePath.startsWith("demo-history/"),
+				compileDiagnostic:
+					compileDiagnosticBySubmission.get(row.id) ?? null,
 				testResults: resultsBySubmission.get(row.id) ?? [],
 			};
 

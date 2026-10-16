@@ -1,0 +1,199 @@
+.submitButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.6rem 1rem;
+	border: 1px solid #2563eb;
+	border-radius: 0.4rem;
+	background: var(--background);
+	color: #2563eb;
+	font: inherit;
+	font-size: 0.9rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.submitButton:hover {
+	background: color-mix(
+		in srgb,
+		#2563eb 8%,
+		var(--background)
+	);
+}
+
+.overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	background: rgb(0 0 0 / 0.55);
+}
+
+.modal {
+	display: flex;
+	width: min(520px, 100%);
+	max-height: min(90vh, 900px);
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	background: var(--background);
+	box-shadow: 0 20px 70px rgb(0 0 0 / 0.25);
+}
+
+.header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 22px 24px;
+	border-bottom: 1px solid var(--border);
+}
+
+.eyebrow {
+	margin: 0 0 10px;
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	opacity: 0.55;
+}
+
+.header h2 {
+	margin: 0;
+	font-size: 1.35rem;
+}
+
+.closeButton {
+	display: grid;
+	width: 36px;
+	height: 36px;
+	flex-shrink: 0;
+	place-items: center;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: transparent;
+	color: inherit;
+	font-size: 1.5rem;
+	cursor: pointer;
+}
+
+.closeButton:hover {
+	background: var(--surface-color);
+}
+
+.closeButton:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 22px 24px;
+}
+
+.body > p {
+	margin: 0;
+	line-height: 1.6;
+	opacity: 0.75;
+}
+
+.fileLabel {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	font-size: 0.9rem;
+	font-weight: 600;
+}
+
+.fileLabel input {
+	width: 100%;
+	padding: 10px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface-color);
+	color: inherit;
+	font: inherit;
+	font-weight: 400;
+}
+
+.selectedFile {
+	overflow-wrap: anywhere;
+}
+
+.error {
+	margin: 0;
+	padding: 10px 12px;
+	border: 1px solid #dc2626;
+	border-radius: 8px;
+	background: color-mix(
+		in srgb,
+		#dc2626 8%,
+		var(--background)
+	);
+	color: #dc2626;
+	font-size: 0.85rem;
+	line-height: 1.5;
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 4px;
+}
+
+.cancelButton,
+.submitModalButton {
+	padding: 0.55rem 0.9rem;
+	border-radius: 0.4rem;
+	font: inherit;
+	font-size: 0.85rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.cancelButton {
+	border: 1px solid var(--border);
+	background: var(--background);
+	color: var(--foreground);
+}
+
+.submitModalButton {
+	border: 1px solid #2563eb;
+	background: #2563eb;
+	color: white;
+}
+
+.cancelButton:hover,
+.submitModalButton:hover {
+	opacity: 0.85;
+}
+
+.cancelButton:disabled,
+.submitModalButton:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+@media (max-width: 650px) {
+	.overlay {
+		padding: 0;
+	}
+
+	.modal {
+		width: 100%;
+		height: 100%;
+		max-height: none;
+		border-radius: 0;
+	}
+
+	.header,
+	.body {
+		padding: 18px;
+	}
+}

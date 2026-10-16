@@ -4,6 +4,7 @@ export type StuffData = {
 	bucket: string;
 	storagePath: string;
 	uploadedById: string;
+	originalFilename: string | null;
 	createdAt: Date;
 };
 
@@ -13,6 +14,7 @@ export class Stuff {
 	private readonly _bucket: string;
 	private readonly _storagePath: string;
 	private readonly _uploadedById: string;
+	private readonly _originalFilename: string | null;
 	private readonly _createdAt: Date;
 
 	constructor(data: StuffData) {
@@ -21,6 +23,7 @@ export class Stuff {
 		this._bucket = data.bucket;
 		this._storagePath = data.storagePath;
 		this._uploadedById = data.uploadedById;
+		this._originalFilename = data.originalFilename;
 		this._createdAt = new Date(data.createdAt);
 	}
 
@@ -29,5 +32,8 @@ export class Stuff {
 	public get bucket(): string { return this._bucket; }
 	public get storagePath(): string { return this._storagePath; }
 	public get uploadedById(): string { return this._uploadedById; }
+	public get originalFilename(): string | null {
+		return this._originalFilename;
+	}
 	public get createdAt(): Date { return new Date(this._createdAt); }
 }

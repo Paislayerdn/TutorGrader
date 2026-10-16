@@ -72,7 +72,7 @@ export default async function QueryHistoryPage({ searchParams }: Props) {
 
 	if (targetUser) {
 		const repository = new SubmissionHistoryRepository();
-		groups = await repository.findHistory(targetUser.id, false);
+		groups = await repository.findHistory(targetUser.id);
 	}
 
 	return (
@@ -118,10 +118,7 @@ export default async function QueryHistoryPage({ searchParams }: Props) {
 							{targetUser.registered_name}
 						</p>
 
-						<HistoryClient
-							groups={groups}
-							canViewAll={false}
-						/>
+						<HistoryClient groups={groups} />
 					</section>
 				)}
 			</section>

@@ -1,0 +1,22 @@
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	margin: 0;
+	padding: 20px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+}
+
+.section h2 {
+	margin: 0;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--border);
+	font-size: 1.2rem;
+}
+
+.empty {
+	margin: 0;
+	line-height: 1.6;
+	opacity: 0.65;
+}

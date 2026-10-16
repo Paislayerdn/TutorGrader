@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 
 import { requireApiUser, route } from "@/lib/http";
@@ -66,7 +65,9 @@ export const GET = route<Props>(async (_request, { params }) => {
 	}
 
 	const filename =
-		stuff.storagePath.replace(/\\/g, "/").split("/").pop() || "source";
+		stuff.originalFilename ||
+		stuff.storagePath.replace(/\\/g, "/").split("/").pop() ||
+		"source";
 
 	return new Response(await file.arrayBuffer(), {
 		headers: {
@@ -79,4 +80,3 @@ export const GET = route<Props>(async (_request, { params }) => {
 		},
 	});
 });
-

@@ -1,3 +1,4 @@
+
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 
@@ -46,10 +47,13 @@ const TERMINAL_STATUSES = new Set([
 	"PROVIDER_ERROR",
 ]);
 
+const MAX_DIAGNOSTIC_LENGTH = 12_000;
+
 export class JudgeService {
 	private readonly executorRegistry = new ExecutorRegistry();
 
 	async judge(submissionId: string): Promise<void> {
+		// 1. Load submission.
 		const { data: submissionData, error: submissionError } =
 			await supabaseAdmin
 				.from("submission")
@@ -68,6 +72,7 @@ export class JudgeService {
 
 		if (TERMINAL_STATUSES.has(submission.status)) return;
 
+		// 2. Validate the problem and its version.
 		const { data: problemData, error: problemError } =
 			await supabaseAdmin
 				.from("problem")
@@ -112,6 +117,7 @@ export class JudgeService {
 			return;
 		}
 
+		// 3. Download the submitted source code.
 		const { data: stuffData, error: stuffError } =
 			await supabaseAdmin
 				.from("stuff")
@@ -149,6 +155,7 @@ export class JudgeService {
 			return;
 		}
 
+		// 4. Load test cases in their configured order.
 		const { data: linkData, error: linkError } =
 			await supabaseAdmin
 				.from("problem_version_test_case")
@@ -175,30 +182,44 @@ export class JudgeService {
 				);
 
 		if (testCaseError || !testCaseData) {
-			console.error("Judge test-case content lookup failed:", testCaseError);
+			console.error(
+				"Judge test-case content lookup failed:",
+				testCaseError,
+			);
 			await this.failSubmission(submissionId, "PROVIDER_ERROR");
 			return;
 		}
 
-		const testCases = testCaseData as TestCaseRow[];
 		const testCaseById = new Map(
-			testCases.map(testCase => [testCase.id, testCase]),
+			(testCaseData as TestCaseRow[]).map(testCase => [
+				testCase.id,
+				testCase,
+			]),
 		);
 
-		const orderedCases = links.map(link => {
+		const orderedCases: {
+			order: number;
+			input: string;
+			expectedOutput: string;
+		}[] = [];
+
+		for (const link of links) {
 			const testCase = testCaseById.get(link.test_case_id);
 
 			if (!testCase) {
-				throw new Error("A linked test case could not be loaded.");
+				console.error("A linked test case could not be loaded.");
+				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				return;
 			}
 
-			return {
+			orderedCases.push({
 				order: link.order,
 				input: testCase.input,
 				expectedOutput: testCase.expected_output,
-			};
-		});
+			});
+		}
 
+		// 5. Resolve the execution provider and compiler.
 		let selection;
 
 		try {
@@ -227,9 +248,128 @@ export class JudgeService {
 			throw new Error("Unable to start judging.");
 		}
 
-		for (let index = 0; index < orderedCases.length; index++) {
-			const testCase = orderedCases[index];
+		// 6. Compile ONCE, before executing any test case.
+		let compilation;
 
+		try {
+			compilation = await selection.executor.compile({
+				sourceCode,
+				compilerId: selection.compilerId,
+			});
+		} catch (error) {
+			console.error("Compilation provider threw an error:", error);
+			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			return;
+		}
+
+		if (!compilation.success) {
+			if (compilation.error.kind === "COMPILE_ERROR") {
+				const diagnostic = this.limitDiagnostic(
+					compilation.error.diagnostic ??
+						compilation.error.message,
+				);
+
+				// A compile-error submission must have no test results.
+				const { error: deleteResultsError } = await supabaseAdmin
+					.from("test_result")
+					.delete()
+					.eq("submission_id", submissionId);
+
+				if (deleteResultsError) {
+					console.error(
+						"Unable to clear old test results:",
+						deleteResultsError,
+					);
+					await this.failSubmission(
+						submissionId,
+						"PROVIDER_ERROR",
+					);
+					return;
+				}
+
+				const { error: saveCompileError } = await supabaseAdmin
+					.from("submission_compile_error")
+					.upsert(
+						{
+							submission_id: submissionId,
+							diagnostic,
+						},
+						{ onConflict: "submission_id" },
+					);
+
+				if (saveCompileError) {
+					console.error(
+						"Unable to save compiler diagnostic:",
+						saveCompileError,
+					);
+					await this.failSubmission(
+						submissionId,
+						"PROVIDER_ERROR",
+					);
+					return;
+				}
+
+				await this.finishSubmission(
+					submissionId,
+					"COMPILE_ERROR",
+					null,
+				);
+				return;
+			}
+
+			// A failed provider request is not a compilation error.
+			console.error(
+				"Compilation provider failed:",
+				compilation.error,
+			);
+
+			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			return;
+		}
+
+		// Compilation succeeded. Remove any old compile-error record and
+		// stale test results before starting a fresh test run.
+		const { error: deleteCompileError } = await supabaseAdmin
+			.from("submission_compile_error")
+			.delete()
+			.eq("submission_id", submissionId);
+
+		if (deleteCompileError) {
+			console.error(
+				"Unable to clear old compiler diagnostic:",
+				deleteCompileError,
+			);
+			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			return;
+		}
+
+		const { error: deleteOldResults } = await supabaseAdmin
+			.from("test_result")
+			.delete()
+			.eq("submission_id", submissionId);
+
+		if (deleteOldResults) {
+			console.error("Unable to clear old test results:", deleteOldResults);
+			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			return;
+		}
+
+		const { error: testingError } = await supabaseAdmin
+			.from("submission")
+			.update({ status: "TESTING", diagnostic: null })
+			.eq("id", submissionId);
+
+		if (testingError) {
+			console.error("Unable to update judging status:", testingError);
+			throw new Error("Unable to update submission status.");
+		}
+
+		// 7. Run EVERY test case.
+		// A wrong answer, runtime error, or provider error on one test
+		// must not prevent the remaining test cases from being attempted.
+		let hasProviderError = false;
+
+		for (const testCase of orderedCases) {
 			let verdict: JudgeVerdict;
 			let output: string | null = null;
 			let diagnostic: string | null = null;
@@ -253,6 +393,10 @@ export class JudgeService {
 					output = result.error.output ?? null;
 					executionTimeMs = result.error.executionTimeMs;
 					memoryUsageKb = result.error.memoryUsageKb;
+
+					if (verdict === "PROVIDER_ERROR") {
+						hasProviderError = true;
+					}
 				} else {
 					output = result.output;
 					diagnostic = this.limitDiagnostic(result.stderr);
@@ -268,10 +412,14 @@ export class JudgeService {
 						: "WRONG_ANSWER";
 				}
 			} catch (error) {
-				console.error("Execution provider threw an error:", error);
+				console.error(
+					`Execution failed unexpectedly for test ${testCase.order}:`,
+					error,
+				);
 
 				verdict = "PROVIDER_ERROR";
 				diagnostic = "The execution provider failed unexpectedly.";
+				hasProviderError = true;
 			}
 
 			const { error: resultSaveError } = await supabaseAdmin
@@ -294,38 +442,25 @@ export class JudgeService {
 				);
 
 			if (resultSaveError) {
-				console.error("Unable to save test result:", resultSaveError);
-				await this.failSubmission(submissionId, "PROVIDER_ERROR");
-				return;
-			}
-
-			if (verdict !== "PASS") {
-				await this.finishSubmission(
-					submissionId,
-					verdict === "COMPILE_ERROR"
-						? "COMPILE_ERROR"
-						: verdict === "PROVIDER_ERROR"
-						? "PROVIDER_ERROR"
-						: "COMPLETED",
-					diagnostic,
+				console.error(
+					`Unable to save test result ${testCase.order}:`,
+					resultSaveError,
 				);
-				return;
-			}
 
-			if (index === 0 && orderedCases.length > 1) {
-				const { error: testingError } = await supabaseAdmin
-					.from("submission")
-					.update({ status: "TESTING" })
-					.eq("id", submissionId);
-
-				if (testingError) {
-					console.error("Unable to update judging status:", testingError);
-					throw new Error("Unable to update submission status.");
-				}
+				// Keep attempting the remaining tests even if one result
+				// cannot be persisted.
+				hasProviderError = true;
 			}
 		}
 
-		await this.finishSubmission(submissionId, "COMPLETED", null);
+		// 8. Finalize only after every test has been attempted.
+		await this.finishSubmission(
+			submissionId,
+			hasProviderError ? "PROVIDER_ERROR" : "COMPLETED",
+			hasProviderError
+				? "One or more test cases could not be processed reliably."
+				: null,
+		);
 	}
 
 	private mapExecutionError(kind: ExecutionErrorKind): JudgeVerdict {
@@ -373,6 +508,7 @@ export class JudgeService {
 	}
 
 	private limitDiagnostic(value: string): string {
-		return value.slice(0, 12_000);
+		return value.slice(0, MAX_DIAGNOSTIC_LENGTH);
 	}
 }
+

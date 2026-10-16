@@ -1,4 +1,5 @@
 import type { Executor } from "./Executor";
+import type { CompilationRequest } from "./CompilationRequest";
 import type { ExecutionRequest } from "./ExecutionRequest";
 import type { ExecutionError } from "./ExecutionError";
 import type { ExecutionResult } from "./ExecutionResult";
@@ -6,6 +7,7 @@ import type { ExecutionResult } from "./ExecutionResult";
 type WandboxResponse = {
 	status?: string | number | null;
 	signal?: string | null;
+	compiler_output?: string | null;
 	compiler_error?: string | null;
 	compiler_message?: string | null;
 	program_output?: string | null;
@@ -68,6 +70,93 @@ function createError(
 }
 
 export class WandboxExecutor implements Executor {
+	async compile(
+		request: CompilationRequest,
+	): Promise<ExecutionResult> {
+		let response: Response;
+
+		try {
+			response = await fetch(API_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"Accept": "application/json",
+				},
+				body: JSON.stringify({
+					code: request.sourceCode,
+					compiler: request.compilerId,
+					dryrun: true,
+					save: false,
+				}),
+				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+				cache: "no-store",
+			});
+		} catch (error) {
+			console.error("Wandbox compilation request failed:", error);
+
+			return createError(
+				"PROVIDER_ERROR",
+				"Wandbox could not be reached or did not respond in time.",
+				null,
+			);
+		}
+
+		if (!response.ok) {
+			console.error("Wandbox returned HTTP status:", response.status);
+
+			return createError(
+				"PROVIDER_ERROR",
+				"Wandbox returned an unsuccessful HTTP response.",
+				null,
+			);
+		}
+
+		let result: WandboxResponse;
+
+		try {
+			result = await response.json() as WandboxResponse;
+		} catch {
+			return createError(
+				"PROVIDER_ERROR",
+				"Wandbox returned an invalid response.",
+				null,
+			);
+		}
+
+		const status = asNumber(result.status);
+
+		const diagnostic = diagnosticText(
+			result.compiler_output,
+			result.compiler_error,
+			result.compiler_message,
+		);
+
+		if (status === null) {
+			return createError(
+				"PROVIDER_ERROR",
+				"Wandbox did not return a valid compilation status.",
+				diagnostic,
+			);
+		}
+
+		if (status !== 0) {
+			return createError(
+				"COMPILE_ERROR",
+				"Compilation failed.",
+				diagnostic ?? "Compilation failed without diagnostic output.",
+			);
+		}
+
+		return {
+			success: true,
+			output: "",
+			stderr: diagnostic ?? "",
+			exitCode: 0,
+			executionTimeMs: null,
+			memoryUsageKb: null,
+		};
+	}
+
 	async execute(
 		request: ExecutionRequest,
 	): Promise<ExecutionResult> {

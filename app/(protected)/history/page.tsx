@@ -2,16 +2,14 @@
 import styles from "./page.module.css";
 
 import { requireUser } from "@/lib/auth-guards";
-import { Admin } from "@/domain/user/Admin";
 import { SubmissionHistoryRepository } from "@/domain/submission/SubmissionHistoryRepository";
 import HistoryClient from "./HistoryClient";
 
 export default async function HistoryPage() {
 	const user = await requireUser();
-	const canViewAll = user instanceof Admin;
-
+	
 	const repository = new SubmissionHistoryRepository();
-	const groups = await repository.findHistory(user.id, canViewAll);
+	const groups = await repository.findHistory(user.id);
 
 	return (
 
@@ -37,7 +35,7 @@ export default async function HistoryPage() {
 					</div>
 				</header>
 
-				<HistoryClient groups={groups} canViewAll={canViewAll} />
+				<HistoryClient groups={groups} />
 			</section>
 		</main>
 	);

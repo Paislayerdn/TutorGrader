@@ -5,12 +5,16 @@ import styles from "./page.module.css";
 import { getCurrentVisitor } from "@/lib/auth";
 import { ProblemRepository } from "@/domain/problem/ProblemRepository";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
+import { User } from "@/domain/user/User";
 import { Admin } from "@/domain/user/Admin";
+import { SubmissionHistoryRepository } from "@/domain/submission/SubmissionHistoryRepository";
 import { isUuid } from "@/lib/isUuid";
 
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 import PublishProblemButton from "./PublishProblemButton";
 import DeleteDraftButton from "./DeleteDraftButton";
+import SubmitSolutionButton from "./SubmitSolutionButton";
+import ProblemSubmissions from "./ProblemSubmissions";
 
 type Props = {
 	params: Promise<{
@@ -34,6 +38,7 @@ export default async function ProblemDetailsPage({ params }: Props) {
 	}
 
 	const isAdmin = user instanceof Admin;
+
 	const canViewAttachments =
 		isAdmin || problem.status === ProblemStatus.ACTIVE;
 
@@ -59,6 +64,18 @@ export default async function ProblemDetailsPage({ params }: Props) {
 		notFound();
 	}
 
+	const submissionHistory =
+		user instanceof User &&
+		!isAdmin &&
+		problem.status === ProblemStatus.ACTIVE
+			? await new SubmissionHistoryRepository().findHistory(
+				user.id,
+				problem.id,
+			)
+			: [];
+
+	const submissionGroup = submissionHistory[0] ?? null;
+
 	return (
 		<main className={styles.page}>
 			<section className={styles.content}>
@@ -78,6 +95,15 @@ export default async function ProblemDetailsPage({ params }: Props) {
 								status={isDraft ? "DRAFT" : problem.status}
 							/>
 
+							{problem.status === ProblemStatus.ACTIVE && (
+								<SubmitSolutionButton
+									problemId={problem.id}
+									extensions={version.languages.flatMap(
+										language => language.extensions,
+									)}
+								/>
+							)}
+
 							{isAdmin && isDraft && (
 								<PublishProblemButton problemId={problem.id} />
 							)}
@@ -94,7 +120,8 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						<h2>Description</h2>
 
 						<p className={styles.description}>
-							{version.description ?? "No description provided."}
+							{version.description ??
+								"No description provided."}
 						</p>
 					</section>
 
@@ -132,34 +159,46 @@ export default async function ProblemDetailsPage({ params }: Props) {
 
 						<ul className={styles.list}>
 							{version.languages.map(language => (
-								<li key={language.id}>{language.name}</li>
+								<li key={language.id}>
+									{language.name}
+								</li>
 							))}
 						</ul>
 					</section>
 
-					{canViewAttachments && version.stuffs.length > 0 && (
-						<section className={styles.section}>
-							<h2>Attachments</h2>
+					{!isAdmin &&
+						problem.status === ProblemStatus.ACTIVE && (
+							<ProblemSubmissions
+								group={submissionGroup}
+							/>
+						)}
 
-							<ul className={styles.list}>
-								{version.stuffs.map(stuff => {
-									const filename =
-										stuff.storagePath
-											.replace(/\\/g, "/")
-											.split("/")
-											.pop() || "attachment";
+					{canViewAttachments &&
+						version.stuffs.length > 0 && (
+							<section className={styles.section}>
+								<h2>Attachments</h2>
 
-									return (
-										<li key={stuff.id}>
-											<a href={`/api/stuff/${stuff.id}/download`}>
-												{filename}
-											</a>
-										</li>
-									);
-								})}
-							</ul>
-						</section>
-					)}
+								<ul className={styles.list}>
+									{version.stuffs.map(stuff => {
+										const filename =
+											stuff.storagePath
+												.replace(/\\/g, "/")
+												.split("/")
+												.pop() || "attachment";
+
+										return (
+											<li key={stuff.id}>
+												<a
+													href={`/api/stuff/${stuff.id}/download`}
+												>
+													{filename}
+												</a>
+											</li>
+										);
+									})}
+								</ul>
+							</section>
+						)}
 				</div>
 			</section>
 		</main>

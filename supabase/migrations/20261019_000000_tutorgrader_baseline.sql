@@ -1,0 +1,1895 @@
+-- ============================================================================
+-- TutorGrader — Phase 0 current-state baseline
+-- Generated from the live Supabase schema on 2026-10-19.
+--
+-- IMPORTANT:
+--   * This is a CURRENT-STATE baseline, not a reconstruction of pre-2026-10-12
+--     history.
+--   * It contains schema/configuration only. No application data is included.
+--   * Supabase-managed schemas/tables are intentionally not recreated here.
+--   * The custom `tutorgrader_backend` role must be provisioned separately.
+--   * The Storage bucket and pg_cron job are represented near the end because
+--     those are Supabase/platform configuration rather than PostgreSQL tables
+--     owned by TutorGrader.
+-- ============================================================================
+
+BEGIN;
+
+-- --------------------------------------------------------------------------
+-- Extensions required by TutorGrader-owned SQL.
+-- pg_cron/pg_net/vault are platform dependencies and may already be enabled
+-- by Supabase; do not attempt to recreate their managed schemas.
+-- --------------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- --------------------------------------------------------------------------
+-- Enum vocabulary
+-- --------------------------------------------------------------------------
+CREATE TYPE public.output_comparison AS ENUM ('EXACT', 'TRIM', 'FREE');
+CREATE TYPE public.problem_status AS ENUM ('ACTIVE', 'FIXING', 'INACTIVE');
+CREATE TYPE public.problem_version_status AS ENUM ('DRAFT', 'PUBLISHED');
+CREATE TYPE public.submission_status AS ENUM (
+    'PENDING',
+    'COMPILING',
+    'TESTING',
+    'COMPLETED',
+    'COMPILE_ERROR',
+    'REJECTED',
+    'PROVIDER_ERROR'
+);
+CREATE TYPE public.test_result_status AS ENUM (
+    'PASS',
+    'WRONG_ANSWER',
+    'TIME_LIMIT',
+    'MEMORY_LIMIT',
+    'RUNTIME_ERROR',
+    'COMPILE_ERROR',
+    'PROVIDER_ERROR'
+);
+CREATE TYPE public.user_role AS ENUM ('OWNER', 'ADMIN', 'USER');
+CREATE TYPE public.user_status AS ENUM ('ACTIVE', 'BANNED', 'INACTIVE');
+
+-- --------------------------------------------------------------------------
+-- Base tables
+-- --------------------------------------------------------------------------
+
+CREATE TABLE public.app_user (
+    id uuid NOT NULL,
+    registered_name text NOT NULL,
+    username text NOT NULL,
+    status public.user_status NOT NULL DEFAULT 'ACTIVE',
+    role public.user_role NOT NULL DEFAULT 'USER',
+    created_by uuid NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    password_hash text NOT NULL,
+    password_changed_at timestamptz
+);
+
+CREATE TABLE public.language (
+    id integer NOT NULL,
+    name text NOT NULL,
+    added_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.language_file_extension (
+    language_id integer NOT NULL,
+    extension text NOT NULL
+);
+
+CREATE TABLE public.name_change (
+    user_id uuid NOT NULL,
+    changed_username text NOT NULL,
+    "timestamp" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.password_change (
+    user_id uuid NOT NULL,
+    "timestamp" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.problem (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    status public.problem_status NOT NULL DEFAULT 'INACTIVE',
+    current_version_number integer,
+    current_draft_number integer,
+    created_by uuid NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.problem_version (
+    problem_id uuid NOT NULL,
+    version_number integer NOT NULL,
+    status public.problem_version_status NOT NULL,
+    name text NOT NULL,
+    description text,
+    difficulty text,
+    time_limit_ms integer NOT NULL,
+    memory_limit_kb integer NOT NULL,
+    output_comparison public.output_comparison NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    published_by uuid,
+    published_at timestamptz
+);
+
+CREATE TABLE public.problem_version_language (
+    problem_id uuid NOT NULL,
+    version_number integer NOT NULL,
+    language_id integer NOT NULL
+);
+
+CREATE TABLE public.test_case (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    input text NOT NULL,
+    expected_output text NOT NULL
+);
+
+CREATE TABLE public.stuff (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    file_extension text NOT NULL,
+    bucket text NOT NULL,
+    storage_path text NOT NULL,
+    uploaded_by uuid NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    original_filename text
+);
+
+CREATE TABLE public.problem_version_stuff (
+    problem_id uuid NOT NULL,
+    version_number integer NOT NULL,
+    stuff_id uuid NOT NULL
+);
+
+CREATE TABLE public.problem_version_test_case (
+    problem_id uuid NOT NULL,
+    version_number integer NOT NULL,
+    "order" integer NOT NULL,
+    test_case_id uuid NOT NULL
+);
+
+CREATE TABLE public.executor (
+    id integer GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+    code text NOT NULL,
+    name text NOT NULL,
+    priority integer NOT NULL DEFAULT 100,
+    enabled boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.executor_language (
+    executor_id integer NOT NULL,
+    language_id integer NOT NULL,
+    compiler_id text NOT NULL,
+    enabled boolean NOT NULL DEFAULT true,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    runtime_version text NOT NULL,
+    is_default boolean NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.submission (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL,
+    problem_id uuid NOT NULL,
+    version_number integer NOT NULL,
+    language_id integer NOT NULL,
+    status public.submission_status NOT NULL DEFAULT 'PENDING',
+    submitted_at timestamptz NOT NULL DEFAULT now(),
+    source_stuff_id uuid NOT NULL,
+    executor_id integer,
+    compiler_id text,
+    runtime_version text,
+    diagnostic text
+);
+
+CREATE TABLE public.submission_compile_error (
+    submission_id uuid NOT NULL,
+    diagnostic text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.submission_judge_queue (
+    id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+    submission_id uuid NOT NULL,
+    status text NOT NULL DEFAULT 'QUEUED',
+    attempts integer NOT NULL DEFAULT 0,
+    available_at timestamptz NOT NULL DEFAULT now(),
+    locked_until timestamptz,
+    locked_by text,
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    finished_at timestamptz
+);
+
+CREATE TABLE public.test_result (
+    submission_id uuid NOT NULL,
+    problem_id uuid NOT NULL,
+    version_number integer NOT NULL,
+    test_case_order integer NOT NULL,
+    status public.test_result_status NOT NULL,
+    execution_time_ms integer,
+    memory_usage_kb integer,
+    output text,
+    diagnostic text
+);
+
+CREATE TABLE public.canonical_storage_gc_queue (
+    id uuid NOT NULL,
+    bucket text NOT NULL,
+    storage_path text NOT NULL,
+    queued_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- --------------------------------------------------------------------------
+-- Primary/unique/check constraints
+-- --------------------------------------------------------------------------
+
+ALTER TABLE public.app_user
+    ADD CONSTRAINT app_user_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT app_user_created_by_fkey
+        FOREIGN KEY (created_by) REFERENCES public.app_user(id);
+
+ALTER TABLE public.language
+    ADD CONSTRAINT language_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT language_name_key UNIQUE (name);
+
+ALTER TABLE public.language_file_extension
+    ADD CONSTRAINT language_file_extension_pkey
+        PRIMARY KEY (language_id, extension),
+    ADD CONSTRAINT language_file_extension_language_id_fkey
+        FOREIGN KEY (language_id) REFERENCES public.language(id) ON DELETE CASCADE;
+
+ALTER TABLE public.name_change
+    ADD CONSTRAINT name_change_pkey
+        PRIMARY KEY (user_id, changed_username, "timestamp"),
+    ADD CONSTRAINT name_change_user_id_fkey
+        FOREIGN KEY (user_id) REFERENCES public.app_user(id) ON DELETE RESTRICT;
+
+ALTER TABLE public.password_change
+    ADD CONSTRAINT password_change_pkey
+        PRIMARY KEY (user_id, "timestamp"),
+    ADD CONSTRAINT password_change_user_id_fkey
+        FOREIGN KEY (user_id) REFERENCES public.app_user(id) ON DELETE RESTRICT;
+
+ALTER TABLE public.problem
+    ADD CONSTRAINT problem_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT problem_created_by_fkey
+        FOREIGN KEY (created_by) REFERENCES public.app_user(id),
+    ADD CONSTRAINT problem_status_version_check
+        CHECK (
+            current_version_number IS NOT NULL
+            OR status = 'INACTIVE'::public.problem_status
+        );
+
+ALTER TABLE public.problem_version
+    ADD CONSTRAINT problem_version_pkey PRIMARY KEY (problem_id, version_number),
+    ADD CONSTRAINT problem_version_problem_id_fkey
+        FOREIGN KEY (problem_id) REFERENCES public.problem(id),
+    ADD CONSTRAINT problem_version_published_by_fkey
+        FOREIGN KEY (published_by) REFERENCES public.app_user(id),
+    ADD CONSTRAINT problem_version_number_positive CHECK (version_number > 0),
+    ADD CONSTRAINT problem_version_time_limit_non_negative CHECK (time_limit_ms >= 0),
+    ADD CONSTRAINT problem_version_memory_limit_non_negative CHECK (memory_limit_kb >= 0),
+    ADD CONSTRAINT problem_version_publisher_check
+        CHECK (
+            (
+                status = 'PUBLISHED'::public.problem_version_status
+                AND published_by IS NOT NULL
+                AND published_at IS NOT NULL
+            )
+            OR (
+                status = 'DRAFT'::public.problem_version_status
+                AND published_by IS NULL
+                AND published_at IS NULL
+            )
+        );
+
+ALTER TABLE public.problem_version_language
+    ADD CONSTRAINT problem_version_language_pkey
+        PRIMARY KEY (problem_id, version_number, language_id),
+    ADD CONSTRAINT problem_version_language_language_id_fkey
+        FOREIGN KEY (language_id) REFERENCES public.language(id),
+    ADD CONSTRAINT problem_version_language_version_fkey
+        FOREIGN KEY (problem_id, version_number)
+        REFERENCES public.problem_version(problem_id, version_number)
+        ON DELETE CASCADE;
+
+ALTER TABLE public.test_case
+    ADD CONSTRAINT test_case_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT test_case_content_unique UNIQUE (input, expected_output);
+
+ALTER TABLE public.stuff
+    ADD CONSTRAINT stuff_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT stuff_bucket_path_unique UNIQUE (bucket, storage_path),
+    ADD CONSTRAINT stuff_uploaded_by_fkey
+        FOREIGN KEY (uploaded_by) REFERENCES public.app_user(id);
+
+ALTER TABLE public.problem_version_stuff
+    ADD CONSTRAINT problem_version_stuff_pkey
+        PRIMARY KEY (problem_id, version_number, stuff_id),
+    ADD CONSTRAINT problem_version_stuff_stuff_fkey
+        FOREIGN KEY (stuff_id) REFERENCES public.stuff(id),
+    ADD CONSTRAINT problem_version_stuff_version_fkey
+        FOREIGN KEY (problem_id, version_number)
+        REFERENCES public.problem_version(problem_id, version_number)
+        ON DELETE CASCADE;
+
+ALTER TABLE public.problem_version_test_case
+    ADD CONSTRAINT problem_version_test_case_pkey
+        PRIMARY KEY (problem_id, version_number, "order"),
+    ADD CONSTRAINT problem_version_test_case_test_case_fkey
+        FOREIGN KEY (test_case_id) REFERENCES public.test_case(id) ON DELETE RESTRICT,
+    ADD CONSTRAINT problem_version_test_case_version_fkey
+        FOREIGN KEY (problem_id, version_number)
+        REFERENCES public.problem_version(problem_id, version_number)
+        ON DELETE CASCADE,
+    ADD CONSTRAINT test_case_order_positive CHECK ("order" > 0);
+
+ALTER TABLE public.executor
+    ADD CONSTRAINT executor_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT executor_code_key UNIQUE (code),
+    ADD CONSTRAINT executor_priority_check CHECK (priority > 0);
+
+ALTER TABLE public.executor_language
+    ADD CONSTRAINT executor_language_pkey
+        PRIMARY KEY (executor_id, language_id, compiler_id),
+    ADD CONSTRAINT executor_language_executor_id_fkey
+        FOREIGN KEY (executor_id) REFERENCES public.executor(id) ON DELETE CASCADE,
+    ADD CONSTRAINT executor_language_language_id_fkey
+        FOREIGN KEY (language_id) REFERENCES public.language(id) ON DELETE RESTRICT,
+    ADD CONSTRAINT executor_language_compiler_id_nonempty
+        CHECK (length(trim(compiler_id)) > 0),
+    ADD CONSTRAINT executor_language_runtime_version_nonempty
+        CHECK (length(trim(runtime_version)) > 0);
+
+ALTER TABLE public.submission
+    ADD CONSTRAINT submission_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT submission_user_id_fkey
+        FOREIGN KEY (user_id) REFERENCES public.app_user(id),
+    ADD CONSTRAINT submission_problem_version_fkey
+        FOREIGN KEY (problem_id, version_number)
+        REFERENCES public.problem_version(problem_id, version_number),
+    ADD CONSTRAINT submission_language_id_fkey
+        FOREIGN KEY (language_id) REFERENCES public.language(id),
+    ADD CONSTRAINT submission_source_stuff_fkey
+        FOREIGN KEY (source_stuff_id) REFERENCES public.stuff(id),
+    ADD CONSTRAINT submission_executor_id_fkey
+        FOREIGN KEY (executor_id) REFERENCES public.executor(id),
+    ADD CONSTRAINT submission_id_problem_version_unique
+        UNIQUE (id, problem_id, version_number),
+    ADD CONSTRAINT submission_executor_mapping_complete
+        CHECK (
+            (
+                executor_id IS NULL
+                AND compiler_id IS NULL
+                AND runtime_version IS NULL
+            )
+            OR (
+                executor_id IS NOT NULL
+                AND compiler_id IS NOT NULL
+                AND runtime_version IS NOT NULL
+            )
+        );
+
+ALTER TABLE public.submission_compile_error
+    ADD CONSTRAINT submission_compile_error_pkey PRIMARY KEY (submission_id),
+    ADD CONSTRAINT submission_compile_error_submission_id_fkey
+        FOREIGN KEY (submission_id) REFERENCES public.submission(id) ON DELETE CASCADE;
+
+ALTER TABLE public.submission_judge_queue
+    ADD CONSTRAINT submission_judge_queue_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT submission_judge_queue_submission_id_key UNIQUE (submission_id),
+    ADD CONSTRAINT submission_judge_queue_submission_id_fkey
+        FOREIGN KEY (submission_id) REFERENCES public.submission(id) ON DELETE CASCADE,
+    ADD CONSTRAINT submission_judge_queue_status_check
+        CHECK (status = ANY (ARRAY[
+            'QUEUED'::text, 'RUNNING'::text, 'COMPLETED'::text, 'FAILED'::text
+        ])),
+    ADD CONSTRAINT submission_judge_queue_attempts_check CHECK (attempts >= 0),
+    ADD CONSTRAINT submission_judge_queue_lock_consistency
+        CHECK (
+            (
+                status = 'RUNNING'::text
+                AND locked_until IS NOT NULL
+                AND locked_by IS NOT NULL
+            )
+            OR (
+                status <> 'RUNNING'::text
+                AND locked_until IS NULL
+                AND locked_by IS NULL
+            )
+        );
+
+ALTER TABLE public.test_result
+    ADD CONSTRAINT test_result_pkey PRIMARY KEY (submission_id, test_case_order),
+    ADD CONSTRAINT test_result_submission_version_fkey
+        FOREIGN KEY (submission_id, problem_id, version_number)
+        REFERENCES public.submission(id, problem_id, version_number)
+        ON DELETE CASCADE,
+    ADD CONSTRAINT test_result_test_case_fkey
+        FOREIGN KEY (problem_id, version_number, test_case_order)
+        REFERENCES public.problem_version_test_case(problem_id, version_number, "order"),
+    ADD CONSTRAINT test_result_execution_time_nonnegative
+        CHECK (execution_time_ms IS NULL OR execution_time_ms >= 0),
+    ADD CONSTRAINT test_result_memory_usage_nonnegative
+        CHECK (memory_usage_kb IS NULL OR memory_usage_kb >= 0);
+
+ALTER TABLE public.canonical_storage_gc_queue
+    ADD CONSTRAINT canonical_storage_gc_queue_pkey PRIMARY KEY (id),
+    ADD CONSTRAINT canonical_storage_gc_queue_bucket_storage_path_key
+        UNIQUE (bucket, storage_path);
+
+-- Circular pointer FKs are added after both sides exist.
+ALTER TABLE public.problem
+    ADD CONSTRAINT problem_current_version_fk
+        FOREIGN KEY (id, current_version_number)
+        REFERENCES public.problem_version(problem_id, version_number),
+    ADD CONSTRAINT problem_current_draft_fk
+        FOREIGN KEY (id, current_draft_number)
+        REFERENCES public.problem_version(problem_id, version_number);
+
+-- --------------------------------------------------------------------------
+-- Indexes
+-- --------------------------------------------------------------------------
+
+CREATE INDEX app_user_created_by_idx
+    ON public.app_user USING btree (created_by);
+
+CREATE UNIQUE INDEX app_user_username_lower_unique
+    ON public.app_user USING btree (lower(username));
+
+CREATE UNIQUE INDEX problem_one_active_draft
+    ON public.problem_version USING btree (problem_id)
+    WHERE status = 'DRAFT'::public.problem_version_status;
+
+CREATE INDEX executor_language_language_enabled_idx
+    ON public.executor_language USING btree (language_id, enabled, executor_id);
+
+CREATE UNIQUE INDEX executor_language_one_default_idx
+    ON public.executor_language USING btree (executor_id, language_id)
+    WHERE is_default AND enabled;
+
+CREATE INDEX submission_language_id_idx
+    ON public.submission USING btree (language_id);
+
+CREATE INDEX submission_problem_version_idx
+    ON public.submission USING btree (problem_id, version_number);
+
+CREATE INDEX submission_submitted_at_idx
+    ON public.submission USING btree (submitted_at);
+
+CREATE INDEX submission_user_id_idx
+    ON public.submission USING btree (user_id);
+
+CREATE INDEX submission_judge_queue_ready_idx
+    ON public.submission_judge_queue USING btree (available_at, id)
+    WHERE status = ANY (ARRAY['QUEUED'::text, 'RUNNING'::text]);
+
+-- --------------------------------------------------------------------------
+-- Private trigger helper
+-- --------------------------------------------------------------------------
+
+CREATE SCHEMA IF NOT EXISTS private;
+
+CREATE OR REPLACE FUNCTION private.prevent_compile_result_conflict()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog', 'public', 'private'
+AS $function$
+DECLARE
+    target_submission_id uuid;
+BEGIN
+    target_submission_id := new.submission_id;
+
+    PERFORM 1
+    FROM public.submission
+    WHERE id = target_submission_id
+    FOR UPDATE;
+
+    IF tg_table_name = 'test_result' THEN
+        IF EXISTS (
+            SELECT 1
+            FROM public.submission_compile_error ce
+            WHERE ce.submission_id = target_submission_id
+        ) THEN
+            RAISE EXCEPTION
+                'Cannot add test results to a compilation-failed submission.'
+                USING errcode = '23514';
+        END IF;
+    ELSE
+        IF EXISTS (
+            SELECT 1
+            FROM public.test_result tr
+            WHERE tr.submission_id = target_submission_id
+        ) THEN
+            RAISE EXCEPTION
+                'Cannot record a compilation failure when test results exist.'
+                USING errcode = '23514';
+        END IF;
+    END IF;
+
+    RETURN new;
+END;
+$function$;
+
+-- --------------------------------------------------------------------------
+-- TutorGrader functions
+-- --------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.get_or_create_test_case(
+    p_input text,
+    p_expected_output text
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_test_case_id uuid;
+BEGIN
+    INSERT INTO public.test_case (input, expected_output)
+    VALUES (p_input, p_expected_output)
+    ON CONFLICT (input, expected_output) DO NOTHING;
+
+    SELECT id INTO v_test_case_id
+    FROM public.test_case
+    WHERE input = p_input
+      AND expected_output = p_expected_output;
+
+    IF v_test_case_id IS NULL THEN
+        RAISE EXCEPTION 'Unable to find or create test case.';
+    END IF;
+
+    RETURN v_test_case_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.change_password_with_history(
+    p_user_id uuid,
+    p_password_hash text
+)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    changed_at timestamptz := now();
+BEGIN
+    UPDATE public.app_user
+    SET password_hash = p_password_hash,
+        password_changed_at = changed_at
+    WHERE id = p_user_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Account not found';
+    END IF;
+
+    INSERT INTO public.password_change (user_id, timestamp)
+    VALUES (p_user_id, changed_at);
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.change_username_with_history(
+    p_user_id uuid,
+    p_username text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    updated_user jsonb;
+BEGIN
+    UPDATE public.app_user AS u
+    SET username = p_username
+    WHERE u.id = p_user_id
+    RETURNING jsonb_build_object(
+        'id', u.id,
+        'username', u.username,
+        'registered_name', u.registered_name,
+        'role', u.role,
+        'status', u.status
+    ) INTO updated_user;
+
+    IF updated_user IS NULL THEN
+        RAISE EXCEPTION 'Account not found';
+    END IF;
+
+    INSERT INTO public.name_change (user_id, changed_username)
+    VALUES (p_user_id, p_username);
+
+    RETURN updated_user;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_problem_draft(
+    p_created_by uuid,
+    p_name text,
+    p_description text,
+    p_difficulty text,
+    p_time_limit_ms integer,
+    p_memory_limit_kb integer,
+    p_output_comparison public.output_comparison,
+    p_language_ids integer[],
+    p_test_cases jsonb,
+    p_stuff_ids uuid[]
+)
+RETURNS TABLE(problem_id uuid, version_number integer)
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_problem_id uuid;
+    v_test_case_count integer;
+    v_test_case jsonb;
+    v_test_case_id uuid;
+    v_order integer := 0;
+BEGIN
+    IF p_created_by IS NULL THEN RAISE EXCEPTION 'Problem creator is required.'; END IF;
+    IF p_name IS NULL OR trim(p_name) = '' THEN RAISE EXCEPTION 'Problem name is required.'; END IF;
+    IF p_time_limit_ms IS NULL OR p_time_limit_ms < 0 THEN RAISE EXCEPTION 'Time limit must be non-negative.'; END IF;
+    IF p_memory_limit_kb IS NULL OR p_memory_limit_kb < 0 THEN RAISE EXCEPTION 'Memory limit must be non-negative.'; END IF;
+    IF p_output_comparison IS NULL THEN RAISE EXCEPTION 'Output comparison is required.'; END IF;
+    IF COALESCE(cardinality(p_language_ids), 0) = 0 THEN RAISE EXCEPTION 'At least one language is required.'; END IF;
+    IF p_test_cases IS NULL OR jsonb_typeof(p_test_cases) <> 'array' THEN RAISE EXCEPTION 'Test cases must be a JSON array.'; END IF;
+
+    SELECT count(*)::integer
+    INTO v_test_case_count
+    FROM jsonb_array_elements(p_test_cases);
+
+    IF v_test_case_count = 0 THEN RAISE EXCEPTION 'At least one test case is required.'; END IF;
+
+    INSERT INTO public.problem (created_by)
+    VALUES (p_created_by)
+    RETURNING id INTO v_problem_id;
+
+    INSERT INTO public.problem_version (
+        problem_id, version_number, status, name, description, difficulty,
+        time_limit_ms, memory_limit_kb, output_comparison
+    )
+    VALUES (
+        v_problem_id, 1, 'DRAFT', trim(p_name),
+        NULLIF(trim(p_description), ''),
+        NULLIF(trim(p_difficulty), ''),
+        p_time_limit_ms, p_memory_limit_kb, p_output_comparison
+    );
+
+    UPDATE public.problem
+    SET current_draft_number = 1
+    WHERE id = v_problem_id;
+
+    INSERT INTO public.problem_version_language (
+        problem_id, version_number, language_id
+    )
+    SELECT v_problem_id, 1, language_id
+    FROM (
+        SELECT DISTINCT unnest(p_language_ids) AS language_id
+    ) AS languages;
+
+    FOR v_test_case IN SELECT value FROM jsonb_array_elements(p_test_cases)
+    LOOP
+        v_order := v_order + 1;
+        v_test_case_id := public.get_or_create_test_case(
+            COALESCE(v_test_case ->> 'input', ''),
+            COALESCE(v_test_case ->> 'expected_output', '')
+        );
+
+        INSERT INTO public.problem_version_test_case (
+            problem_id, version_number, "order", test_case_id
+        )
+        VALUES (v_problem_id, 1, v_order, v_test_case_id);
+    END LOOP;
+
+    INSERT INTO public.problem_version_stuff (
+        problem_id, version_number, stuff_id
+    )
+    SELECT v_problem_id, 1, stuff_id
+    FROM (
+        SELECT DISTINCT unnest(COALESCE(p_stuff_ids, ARRAY[]::uuid[])) AS stuff_id
+    ) AS stuffs;
+
+    RETURN QUERY SELECT v_problem_id, 1;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.create_problem_edit_draft(
+    p_problem_id uuid
+)
+RETURNS TABLE(problem_id uuid, version_number integer)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_current_version integer;
+    v_draft_number integer;
+    v_new_version integer;
+    v_status public.problem_version_status;
+BEGIN
+    SELECT p.current_version_number, p.current_draft_number
+    INTO v_current_version, v_draft_number
+    FROM public.problem AS p
+    WHERE p.id = p_problem_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN RAISE EXCEPTION 'Problem not found.'; END IF;
+
+    IF v_draft_number IS NOT NULL THEN
+        SELECT pv.status INTO v_status
+        FROM public.problem_version AS pv
+        WHERE pv.problem_id = p_problem_id
+          AND pv.version_number = v_draft_number;
+
+        IF NOT FOUND OR v_status <> 'DRAFT' THEN
+            RAISE EXCEPTION 'The current draft is invalid.';
+        END IF;
+
+        RETURN QUERY SELECT p_problem_id, v_draft_number;
+        RETURN;
+    END IF;
+
+    IF v_current_version IS NULL THEN
+        RAISE EXCEPTION 'This problem has neither a draft nor a published version.';
+    END IF;
+
+    SELECT pv.status INTO v_status
+    FROM public.problem_version AS pv
+    WHERE pv.problem_id = p_problem_id
+      AND pv.version_number = v_current_version;
+
+    IF NOT FOUND OR v_status <> 'PUBLISHED' THEN
+        RAISE EXCEPTION 'The current published version is invalid.';
+    END IF;
+
+    SELECT COALESCE(MAX(pv.version_number), 0) + 1
+    INTO v_new_version
+    FROM public.problem_version AS pv
+    WHERE pv.problem_id = p_problem_id;
+
+    INSERT INTO public.problem_version (
+        problem_id, version_number, status, name, description, difficulty,
+        time_limit_ms, memory_limit_kb, output_comparison
+    )
+    SELECT pv.problem_id, v_new_version, 'DRAFT'::public.problem_version_status,
+           pv.name, pv.description, pv.difficulty,
+           pv.time_limit_ms, pv.memory_limit_kb, pv.output_comparison
+    FROM public.problem_version AS pv
+    WHERE pv.problem_id = p_problem_id
+      AND pv.version_number = v_current_version;
+
+    INSERT INTO public.problem_version_language (
+        problem_id, version_number, language_id
+    )
+    SELECT pvl.problem_id, v_new_version, pvl.language_id
+    FROM public.problem_version_language AS pvl
+    WHERE pvl.problem_id = p_problem_id
+      AND pvl.version_number = v_current_version;
+
+    INSERT INTO public.problem_version_test_case (
+        problem_id, version_number, "order", test_case_id
+    )
+    SELECT pvtc.problem_id, v_new_version, pvtc."order", pvtc.test_case_id
+    FROM public.problem_version_test_case AS pvtc
+    WHERE pvtc.problem_id = p_problem_id
+      AND pvtc.version_number = v_current_version;
+
+    INSERT INTO public.problem_version_stuff (
+        problem_id, version_number, stuff_id
+    )
+    SELECT pvs.problem_id, v_new_version, pvs.stuff_id
+    FROM public.problem_version_stuff AS pvs
+    WHERE pvs.problem_id = p_problem_id
+      AND pvs.version_number = v_current_version;
+
+    UPDATE public.problem
+    SET current_draft_number = v_new_version
+    WHERE id = p_problem_id;
+
+    RETURN QUERY SELECT p_problem_id, v_new_version;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.delete_problem_draft(
+    p_problem_id uuid
+)
+RETURNS TABLE(bucket text, storage_path text)
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_current_version_number integer;
+    v_current_draft_number integer;
+    v_version_status public.problem_version_status;
+    v_stuff_ids uuid[];
+BEGIN
+    SELECT p.current_version_number, p.current_draft_number
+    INTO v_current_version_number, v_current_draft_number
+    FROM public.problem AS p
+    WHERE p.id = p_problem_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN RAISE EXCEPTION 'Problem not found.'; END IF;
+    IF v_current_draft_number IS NULL THEN RAISE EXCEPTION 'This problem has no draft to delete.'; END IF;
+
+    SELECT pv.status INTO v_version_status
+    FROM public.problem_version AS pv
+    WHERE pv.problem_id = p_problem_id
+      AND pv.version_number = v_current_draft_number
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_version_status <> 'DRAFT' THEN
+        RAISE EXCEPTION 'The current problem version is not a draft.';
+    END IF;
+
+    SELECT COALESCE(array_agg(pvs.stuff_id), ARRAY[]::uuid[])
+    INTO v_stuff_ids
+    FROM public.problem_version_stuff AS pvs
+    WHERE pvs.problem_id = p_problem_id
+      AND pvs.version_number = v_current_draft_number;
+
+    UPDATE public.problem
+    SET current_draft_number = NULL
+    WHERE id = p_problem_id;
+
+    DELETE FROM public.problem_version
+    WHERE problem_id = p_problem_id
+      AND version_number = v_current_draft_number;
+
+    IF v_current_version_number IS NULL THEN
+        DELETE FROM public.problem WHERE id = p_problem_id;
+    END IF;
+
+    RETURN QUERY
+    DELETE FROM public.stuff AS s
+    WHERE s.id = ANY(v_stuff_ids)
+      AND NOT EXISTS (
+          SELECT 1 FROM public.problem_version_stuff AS pvs
+          WHERE pvs.stuff_id = s.id
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM public.submission AS sub
+          WHERE sub.source_stuff_id = s.id
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM public.stuff AS other
+          WHERE other.id <> s.id
+            AND other.bucket = s.bucket
+            AND other.storage_path = s.storage_path
+      )
+    RETURNING s.bucket, s.storage_path;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.publish_problem_draft(
+    p_problem_id uuid,
+    p_published_by uuid
+)
+RETURNS TABLE(problem_id uuid, version_number integer)
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_draft_number integer;
+    v_version_status public.problem_version_status;
+BEGIN
+    IF p_published_by IS NULL THEN RAISE EXCEPTION 'Publisher is required.'; END IF;
+
+    SELECT p.current_draft_number
+    INTO v_draft_number
+    FROM public.problem AS p
+    WHERE p.id = p_problem_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN RAISE EXCEPTION 'Problem not found.'; END IF;
+    IF v_draft_number IS NULL THEN RAISE EXCEPTION 'This problem has no draft to publish.'; END IF;
+
+    SELECT pv.status
+    INTO v_version_status
+    FROM public.problem_version AS pv
+    WHERE pv.problem_id = p_problem_id
+      AND pv.version_number = v_draft_number
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_version_status <> 'DRAFT' THEN
+        RAISE EXCEPTION 'The current problem version is not a draft.';
+    END IF;
+
+    UPDATE public.problem_version AS pv
+    SET status = 'PUBLISHED',
+        published_by = p_published_by,
+        published_at = now()
+    WHERE pv.problem_id = p_problem_id
+      AND pv.version_number = v_draft_number;
+
+    UPDATE public.problem AS p
+    SET current_version_number = v_draft_number,
+        current_draft_number = NULL,
+        updated_at = now()
+    WHERE p.id = p_problem_id;
+
+    RETURN QUERY SELECT p_problem_id, v_draft_number;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.save_problem_draft(
+    p_problem_id uuid,
+    p_version_number integer,
+    p_name text,
+    p_description text,
+    p_difficulty text,
+    p_time_limit_ms integer,
+    p_memory_limit_kb integer,
+    p_output_comparison public.output_comparison,
+    p_language_ids integer[],
+    p_test_cases jsonb,
+    p_stuff_ids uuid[]
+)
+RETURNS TABLE(bucket text, storage_path text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_draft_number integer;
+    v_status public.problem_version_status;
+    v_old_stuff_ids uuid[];
+    v_test_case jsonb;
+    v_test_case_id uuid;
+    v_order integer := 0;
+    v_test_case_count integer;
+BEGIN
+    IF p_name IS NULL OR trim(p_name) = '' THEN RAISE EXCEPTION 'Problem name is required.'; END IF;
+    IF p_time_limit_ms IS NULL OR p_time_limit_ms < 0
+       OR p_memory_limit_kb IS NULL OR p_memory_limit_kb < 0
+    THEN
+        RAISE EXCEPTION 'Time and memory limits must be non-negative.';
+    END IF;
+    IF p_output_comparison IS NULL THEN RAISE EXCEPTION 'Output comparison is required.'; END IF;
+    IF COALESCE(cardinality(p_language_ids), 0) = 0 THEN RAISE EXCEPTION 'At least one language is required.'; END IF;
+    IF p_test_cases IS NULL OR jsonb_typeof(p_test_cases) <> 'array' THEN RAISE EXCEPTION 'Test cases must be a JSON array.'; END IF;
+
+    SELECT count(*)::integer
+    INTO v_test_case_count
+    FROM jsonb_array_elements(p_test_cases);
+
+    IF v_test_case_count = 0 THEN RAISE EXCEPTION 'At least one test case is required.'; END IF;
+
+    SELECT p.current_draft_number
+    INTO v_draft_number
+    FROM public.problem AS p
+    WHERE p.id = p_problem_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN RAISE EXCEPTION 'Problem not found.'; END IF;
+    IF v_draft_number IS NULL OR v_draft_number <> p_version_number THEN
+        RAISE EXCEPTION 'This is no longer the current draft.';
+    END IF;
+
+    SELECT pv.status
+    INTO v_status
+    FROM public.problem_version AS pv
+    WHERE pv.problem_id = p_problem_id
+      AND pv.version_number = p_version_number
+    FOR UPDATE;
+
+    IF NOT FOUND OR v_status <> 'DRAFT' THEN
+        RAISE EXCEPTION 'Only the current draft can be edited.';
+    END IF;
+
+    UPDATE public.problem_version
+    SET name = trim(p_name),
+        description = NULLIF(trim(p_description), ''),
+        difficulty = NULLIF(trim(p_difficulty), ''),
+        time_limit_ms = p_time_limit_ms,
+        memory_limit_kb = p_memory_limit_kb,
+        output_comparison = p_output_comparison
+    WHERE problem_id = p_problem_id
+      AND version_number = p_version_number;
+
+    DELETE FROM public.problem_version_language
+    WHERE problem_id = p_problem_id
+      AND version_number = p_version_number;
+
+    INSERT INTO public.problem_version_language (
+        problem_id, version_number, language_id
+    )
+    SELECT p_problem_id, p_version_number, language_id
+    FROM (
+        SELECT DISTINCT unnest(p_language_ids) AS language_id
+    ) AS selected_languages;
+
+    SELECT COALESCE(array_agg(stuff_id), ARRAY[]::uuid[])
+    INTO v_old_stuff_ids
+    FROM public.problem_version_stuff
+    WHERE problem_id = p_problem_id
+      AND version_number = p_version_number;
+
+    DELETE FROM public.problem_version_stuff
+    WHERE problem_id = p_problem_id
+      AND version_number = p_version_number;
+
+    INSERT INTO public.problem_version_stuff (
+        problem_id, version_number, stuff_id
+    )
+    SELECT p_problem_id, p_version_number, stuff_id
+    FROM (
+        SELECT DISTINCT unnest(COALESCE(p_stuff_ids, ARRAY[]::uuid[])) AS stuff_id
+    ) AS selected_stuffs;
+
+    DELETE FROM public.problem_version_test_case
+    WHERE problem_id = p_problem_id
+      AND version_number = p_version_number;
+
+    FOR v_test_case IN SELECT value FROM jsonb_array_elements(p_test_cases)
+    LOOP
+        IF jsonb_typeof(v_test_case) <> 'object'
+           OR jsonb_typeof(v_test_case -> 'input') <> 'string'
+           OR jsonb_typeof(v_test_case -> 'expectedOutput') <> 'string'
+        THEN
+            RAISE EXCEPTION 'Invalid test case data.';
+        END IF;
+
+        v_order := v_order + 1;
+
+        v_test_case_id := public.get_or_create_test_case(
+            v_test_case ->> 'input',
+            v_test_case ->> 'expectedOutput'
+        );
+
+        INSERT INTO public.problem_version_test_case (
+            problem_id, version_number, "order", test_case_id
+        )
+        VALUES (p_problem_id, p_version_number, v_order, v_test_case_id);
+    END LOOP;
+
+    UPDATE public.problem
+    SET updated_at = now()
+    WHERE id = p_problem_id;
+
+    RETURN QUERY
+    DELETE FROM public.stuff AS s
+    WHERE s.id = ANY(v_old_stuff_ids)
+      AND NOT (s.id = ANY(COALESCE(p_stuff_ids, ARRAY[]::uuid[])))
+      AND NOT EXISTS (
+          SELECT 1 FROM public.problem_version_stuff AS pvs
+          WHERE pvs.stuff_id = s.id
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM public.submission AS sub
+          WHERE sub.source_stuff_id = s.id
+      )
+      AND NOT EXISTS (
+          SELECT 1 FROM public.stuff AS other
+          WHERE other.id <> s.id
+            AND other.bucket = s.bucket
+            AND other.storage_path = s.storage_path
+      )
+    RETURNING s.bucket, s.storage_path;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.enqueue_submission_judge_job(
+    p_submission_id uuid
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_id bigint;
+BEGIN
+    INSERT INTO public.submission_judge_queue (submission_id)
+    VALUES (p_submission_id)
+    ON CONFLICT (submission_id) DO NOTHING
+    RETURNING id INTO v_id;
+
+    IF v_id IS NULL THEN
+        SELECT q.id INTO v_id
+        FROM public.submission_judge_queue AS q
+        WHERE q.submission_id = p_submission_id;
+    END IF;
+
+    IF v_id IS NULL THEN RAISE EXCEPTION 'Unable to enqueue submission'; END IF;
+    RETURN v_id;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.enqueue_new_submission_for_judging()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+BEGIN
+    PERFORM public.enqueue_submission_judge_job(NEW.id);
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.claim_submission_judge_jobs(
+    p_worker_id text,
+    p_batch_size integer DEFAULT 1
+)
+RETURNS TABLE(id bigint, submission_id uuid, attempts integer)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+BEGIN
+    IF p_worker_id IS NULL OR length(trim(p_worker_id)) = 0 THEN
+        RAISE EXCEPTION 'Worker ID is required';
+    END IF;
+
+    IF p_batch_size < 1 OR p_batch_size > 5 THEN
+        RAISE EXCEPTION 'Batch size must be between 1 and 5';
+    END IF;
+
+    WITH exhausted AS (
+        UPDATE public.submission_judge_queue AS q
+        SET status = 'FAILED',
+            locked_until = NULL,
+            locked_by = NULL,
+            last_error = COALESCE(
+                q.last_error,
+                'Worker lease expired after the retry limit.'
+            ),
+            finished_at = now(),
+            updated_at = now()
+        WHERE q.status = 'RUNNING'
+          AND q.locked_until < now()
+          AND q.attempts >= 5
+        RETURNING q.submission_id, q.last_error
+    )
+    UPDATE public.submission AS s
+    SET status = 'PROVIDER_ERROR',
+        diagnostic = LEFT(exhausted.last_error, 12000)
+    FROM exhausted
+    WHERE s.id = exhausted.submission_id
+      AND s.status IN ('PENDING', 'COMPILING', 'TESTING');
+
+    RETURN QUERY
+    WITH candidates AS (
+        SELECT q.id
+        FROM public.submission_judge_queue AS q
+        WHERE (
+            (q.status = 'QUEUED' AND q.available_at <= now())
+            OR (q.status = 'RUNNING' AND q.locked_until < now())
+        )
+        AND q.attempts < 5
+        ORDER BY q.available_at, q.id
+        FOR UPDATE SKIP LOCKED
+        LIMIT p_batch_size
+    ),
+    claimed AS (
+        UPDATE public.submission_judge_queue AS q
+        SET status = 'RUNNING',
+            attempts = q.attempts + 1,
+            locked_until = now() + interval '10 minutes',
+            locked_by = p_worker_id,
+            updated_at = now(),
+            last_error = NULL
+        FROM candidates AS c
+        WHERE q.id = c.id
+        RETURNING q.id, q.submission_id, q.attempts
+    )
+    SELECT claimed.id, claimed.submission_id, claimed.attempts
+    FROM claimed;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.garbage_collect_canonical_content()
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_test_cases_deleted integer := 0;
+    v_stuff_deleted integer := 0;
+BEGIN
+    IF current_user NOT IN ('postgres', 'service_role') THEN
+        RAISE EXCEPTION 'Only the service role may run canonical content garbage collection.';
+    END IF;
+
+    LOCK TABLE public.test_case IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE public.problem_version_test_case IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE public.stuff IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE public.problem_version_stuff IN SHARE ROW EXCLUSIVE MODE;
+    LOCK TABLE public.submission IN SHARE ROW EXCLUSIVE MODE;
+
+    DELETE FROM public.test_case AS tc
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.problem_version_test_case AS link
+        WHERE link.test_case_id = tc.id
+    );
+    GET DIAGNOSTICS v_test_cases_deleted = ROW_COUNT;
+
+    WITH deleted_stuff AS (
+        DELETE FROM public.stuff AS s
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM public.problem_version_stuff AS link
+            WHERE link.stuff_id = s.id
+        )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM public.submission AS sub
+            WHERE sub.source_stuff_id = s.id
+        )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM public.stuff AS other
+            WHERE other.id <> s.id
+              AND other.bucket = s.bucket
+              AND other.storage_path = s.storage_path
+        )
+        RETURNING s.id, s.bucket, s.storage_path
+    ),
+    queued AS (
+        INSERT INTO public.canonical_storage_gc_queue (id, bucket, storage_path)
+        SELECT id, bucket, storage_path
+        FROM deleted_stuff
+        ON CONFLICT (bucket, storage_path) DO NOTHING
+        RETURNING id
+    )
+    SELECT count(*)::integer
+    INTO v_stuff_deleted
+    FROM deleted_stuff;
+
+    RETURN jsonb_build_object(
+        'test_cases_deleted', v_test_cases_deleted,
+        'stuff_metadata_deleted', v_stuff_deleted,
+        'storage_objects_pending',
+        COALESCE(
+            (
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'id', q.id,
+                        'bucket', q.bucket,
+                        'storage_path', q.storage_path
+                    )
+                    ORDER BY q.queued_at, q.id
+                )
+                FROM public.canonical_storage_gc_queue AS q
+            ),
+            '[]'::jsonb
+        )
+    );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.complete_canonical_storage_gc(
+    p_stuff_ids uuid[]
+)
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_completed integer := 0;
+BEGIN
+    IF current_user NOT IN ('postgres', 'service_role') THEN
+        RAISE EXCEPTION 'Only the service role may complete canonical storage garbage collection.';
+    END IF;
+
+    DELETE FROM public.canonical_storage_gc_queue AS q
+    WHERE q.id = ANY(COALESCE(p_stuff_ids, ARRAY[]::uuid[]));
+
+    GET DIAGNOSTICS v_completed = ROW_COUNT;
+    RETURN v_completed;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.prevent_problem_version_identity_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+BEGIN
+    IF NEW.problem_id IS DISTINCT FROM OLD.problem_id THEN
+        RAISE EXCEPTION 'Problem version cannot be moved to another problem';
+    END IF;
+    IF NEW.version_number IS DISTINCT FROM OLD.version_number THEN
+        RAISE EXCEPTION 'Problem version number cannot be changed';
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.prevent_published_version_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+BEGIN
+    IF OLD.status = 'PUBLISHED' THEN
+        RAISE EXCEPTION 'Published problem versions are immutable';
+    END IF;
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.prevent_published_version_child_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+BEGIN
+    IF TG_OP <> 'INSERT' AND EXISTS (
+        SELECT 1
+        FROM public.problem_version AS pv
+        WHERE pv.problem_id = OLD.problem_id
+          AND pv.version_number = OLD.version_number
+          AND pv.status = 'PUBLISHED'
+    ) THEN
+        RAISE EXCEPTION 'Children of published problem versions are immutable';
+    END IF;
+
+    IF TG_OP <> 'DELETE' AND EXISTS (
+        SELECT 1
+        FROM public.problem_version AS pv
+        WHERE pv.problem_id = NEW.problem_id
+          AND pv.version_number = NEW.version_number
+          AND pv.status = 'PUBLISHED'
+    ) THEN
+        RAISE EXCEPTION 'Children of published problem versions are immutable';
+    END IF;
+
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.touch_problem_from_version_record()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        UPDATE public.problem
+        SET updated_at = now()
+        WHERE id = OLD.problem_id;
+    END IF;
+
+    IF TG_OP <> 'DELETE'
+       AND (TG_OP = 'INSERT' OR NEW.problem_id IS DISTINCT FROM OLD.problem_id)
+    THEN
+        UPDATE public.problem
+        SET updated_at = now()
+        WHERE id = NEW.problem_id;
+    ELSIF TG_OP = 'UPDATE' THEN
+        UPDATE public.problem
+        SET updated_at = now()
+        WHERE id = NEW.problem_id;
+    END IF;
+
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.update_problem_timestamp()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+BEGIN
+    NEW.updated_at := now();
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.validate_problem_version_pointers()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    target_status public.problem_version_status;
+BEGIN
+    IF NEW.current_version_number IS NOT NULL THEN
+        SELECT pv.status INTO target_status
+        FROM public.problem_version AS pv
+        WHERE pv.problem_id = NEW.id
+          AND pv.version_number = NEW.current_version_number;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'current_version_number must reference an existing problem version';
+        END IF;
+
+        IF target_status <> 'PUBLISHED' THEN
+            RAISE EXCEPTION 'current_version_number must reference a PUBLISHED version';
+        END IF;
+    END IF;
+
+    IF NEW.current_draft_number IS NOT NULL THEN
+        SELECT pv.status INTO target_status
+        FROM public.problem_version AS pv
+        WHERE pv.problem_id = NEW.id
+          AND pv.version_number = NEW.current_draft_number;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'current_draft_number must reference an existing problem version';
+        END IF;
+
+        IF target_status <> 'DRAFT' THEN
+            RAISE EXCEPTION 'current_draft_number must reference a DRAFT version';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.validate_submission_language()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM public.problem_version_language AS pvl
+        WHERE pvl.problem_id = NEW.problem_id
+          AND pvl.version_number = NEW.version_number
+          AND pvl.language_id = NEW.language_id
+    ) THEN
+        RAISE EXCEPTION 'Language is not accepted by this problem version';
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.validate_submission_target()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+DECLARE
+    v_status public.problem_status;
+    v_current_version_number integer;
+BEGIN
+    SELECT p.status, p.current_version_number
+    INTO v_status, v_current_version_number
+    FROM public.problem AS p
+    WHERE p.id = NEW.problem_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Problem not found.';
+    END IF;
+
+    IF v_status <> 'ACTIVE'
+       OR v_current_version_number IS DISTINCT FROM NEW.version_number
+    THEN
+        RAISE EXCEPTION 'Submissions are only accepted for the active current problem version.';
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.validate_test_result_test_case()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO ''
+AS $function$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM public.problem_version_test_case AS tc
+        WHERE tc.problem_id = NEW.problem_id
+          AND tc.version_number = NEW.version_number
+          AND tc."order" = NEW.test_case_order
+    ) THEN
+        RAISE EXCEPTION 'Test result must reference a test case in the same problem version';
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+-- --------------------------------------------------------------------------
+-- RLS event trigger
+-- --------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.rls_auto_enable()
+RETURNS event_trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'pg_catalog'
+AS $function$
+DECLARE
+    cmd record;
+BEGIN
+    FOR cmd IN
+        SELECT *
+        FROM pg_event_trigger_ddl_commands()
+        WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+          AND object_type IN ('table', 'partitioned table')
+    LOOP
+        IF cmd.schema_name IS NOT NULL
+           AND cmd.schema_name IN ('public')
+           AND cmd.schema_name NOT IN ('pg_catalog', 'information_schema')
+           AND cmd.schema_name NOT LIKE 'pg_toast%'
+           AND cmd.schema_name NOT LIKE 'pg_temp%'
+        THEN
+            BEGIN
+                EXECUTE format(
+                    'alter table if exists %s enable row level security',
+                    cmd.object_identity
+                );
+                RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+            EXCEPTION WHEN OTHERS THEN
+                RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+            END;
+        ELSE
+            RAISE LOG
+                'rls_auto_enable: skip % (either system schema or not in enforced list: %.)',
+                cmd.object_identity, cmd.schema_name;
+        END IF;
+    END LOOP;
+END;
+$function$;
+
+-- --------------------------------------------------------------------------
+-- Triggers
+-- --------------------------------------------------------------------------
+
+CREATE TRIGGER update_problem_timestamp
+BEFORE UPDATE ON public.problem
+FOR EACH ROW EXECUTE FUNCTION public.update_problem_timestamp();
+
+CREATE TRIGGER validate_problem_version_pointers
+BEFORE INSERT OR UPDATE OF current_version_number, current_draft_number
+ON public.problem
+FOR EACH ROW EXECUTE FUNCTION public.validate_problem_version_pointers();
+
+CREATE TRIGGER prevent_problem_version_identity_change
+BEFORE UPDATE ON public.problem_version
+FOR EACH ROW EXECUTE FUNCTION public.prevent_problem_version_identity_change();
+
+CREATE TRIGGER prevent_published_version_change
+BEFORE DELETE OR UPDATE ON public.problem_version
+FOR EACH ROW EXECUTE FUNCTION public.prevent_published_version_change();
+
+CREATE TRIGGER touch_problem_from_version_record
+AFTER INSERT OR DELETE OR UPDATE ON public.problem_version
+FOR EACH ROW EXECUTE FUNCTION public.touch_problem_from_version_record();
+
+CREATE TRIGGER prevent_published_version_language_change
+BEFORE INSERT OR DELETE OR UPDATE ON public.problem_version_language
+FOR EACH ROW EXECUTE FUNCTION public.prevent_published_version_child_change();
+
+CREATE TRIGGER touch_problem_from_version_language
+AFTER INSERT OR DELETE OR UPDATE ON public.problem_version_language
+FOR EACH ROW EXECUTE FUNCTION public.touch_problem_from_version_record();
+
+CREATE TRIGGER prevent_published_version_stuff_change
+BEFORE INSERT OR DELETE OR UPDATE ON public.problem_version_stuff
+FOR EACH ROW EXECUTE FUNCTION public.prevent_published_version_child_change();
+
+CREATE TRIGGER touch_problem_from_version_stuff
+AFTER INSERT OR DELETE OR UPDATE ON public.problem_version_stuff
+FOR EACH ROW EXECUTE FUNCTION public.touch_problem_from_version_record();
+
+CREATE TRIGGER prevent_published_version_test_case_change
+BEFORE INSERT OR DELETE OR UPDATE ON public.problem_version_test_case
+FOR EACH ROW EXECUTE FUNCTION public.prevent_published_version_child_change();
+
+CREATE TRIGGER touch_problem_from_version_test_case
+AFTER INSERT OR DELETE OR UPDATE ON public.problem_version_test_case
+FOR EACH ROW EXECUTE FUNCTION public.touch_problem_from_version_record();
+
+CREATE TRIGGER submission_enqueue_judge_job
+AFTER INSERT ON public.submission
+FOR EACH ROW EXECUTE FUNCTION public.enqueue_new_submission_for_judging();
+
+CREATE TRIGGER validate_submission_language
+BEFORE INSERT OR UPDATE OF problem_id, version_number, language_id
+ON public.submission
+FOR EACH ROW EXECUTE FUNCTION public.validate_submission_language();
+
+CREATE TRIGGER validate_submission_target
+BEFORE INSERT OR UPDATE OF problem_id, version_number
+ON public.submission
+FOR EACH ROW EXECUTE FUNCTION public.validate_submission_target();
+
+CREATE TRIGGER prevent_test_results_compile_error
+BEFORE INSERT OR UPDATE ON public.submission_compile_error
+FOR EACH ROW EXECUTE FUNCTION private.prevent_compile_result_conflict();
+
+CREATE TRIGGER prevent_compile_error_test_results
+BEFORE INSERT OR UPDATE ON public.test_result
+FOR EACH ROW EXECUTE FUNCTION private.prevent_compile_result_conflict();
+
+-- --------------------------------------------------------------------------
+-- Views
+-- --------------------------------------------------------------------------
+
+CREATE VIEW public.app_user_view AS
+SELECT
+    u.id,
+    u.registered_name,
+    u.username,
+    u.status,
+    u.role,
+    u.created_by,
+    u.created_at,
+    u.password_changed_at,
+    creator.username AS creator_username,
+    creator.registered_name AS creator_registered_name
+FROM public.app_user AS u
+JOIN public.app_user AS creator
+  ON creator.id = u.created_by;
+
+CREATE VIEW public.problem_list_view
+WITH (security_invoker = true)
+AS
+SELECT
+    row_number() OVER (ORDER BY p.created_at, p.id) AS problem_number,
+    p.id,
+    p.status,
+    p.current_version_number,
+    pv.name,
+    pv.description,
+    pv.difficulty,
+    pv.time_limit_ms,
+    pv.memory_limit_kb
+FROM public.problem AS p
+JOIN public.problem_version AS pv
+  ON pv.problem_id = p.id
+ AND pv.version_number = p.current_version_number
+WHERE pv.status = 'PUBLISHED'::public.problem_version_status;
+
+CREATE VIEW public.problem_status_counts
+WITH (security_invoker = true)
+AS
+SELECT
+    count(*) FILTER (WHERE status = 'ACTIVE'::public.problem_status) AS active_count,
+    count(*) FILTER (WHERE status = 'FIXING'::public.problem_status) AS fixing_count,
+    count(*) FILTER (WHERE status = 'INACTIVE'::public.problem_status) AS inactive_count
+FROM public.problem;
+
+CREATE VIEW public.problem_version_language_view
+WITH (security_invoker = true)
+AS
+SELECT
+    pvl.problem_id,
+    pvl.version_number,
+    l.name AS language
+FROM public.problem_version_language AS pvl
+JOIN public.language AS l
+  ON l.id = pvl.language_id;
+
+CREATE VIEW public.problem_version_stuff_view
+WITH (security_invoker = true)
+AS
+SELECT
+    pvs.problem_id,
+    pvs.version_number,
+    s.id AS stuff_id,
+    s.file_extension,
+    s.bucket,
+    s.storage_path,
+    s.uploaded_by,
+    s.created_at
+FROM public.problem_version_stuff AS pvs
+JOIN public.stuff AS s
+  ON s.id = pvs.stuff_id;
+
+-- --------------------------------------------------------------------------
+-- RLS
+-- --------------------------------------------------------------------------
+
+ALTER TABLE public.app_user ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.canonical_storage_gc_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.executor ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.executor_language ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.language ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.language_file_extension ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.name_change ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.password_change ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.problem ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.problem_version ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.problem_version_language ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.problem_version_stuff ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.problem_version_test_case ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stuff ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.submission ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.submission_compile_error ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.submission_judge_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.test_case ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.test_result ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.app_user AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.language AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.language_file_extension AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.name_change AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.problem_version AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.problem_version_language AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.problem_version_stuff AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.problem_version_test_case AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.stuff AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.submission AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+CREATE POLICY tutorgrader_backend_all_access
+ON public.test_result AS PERMISSIVE
+FOR ALL TO tutorgrader_backend
+USING (true) WITH CHECK (true);
+
+-- --------------------------------------------------------------------------
+-- Grants
+--
+-- These mirror the current live ACLs. The custom tutorgrader_backend role
+-- must exist before this migration is applied.
+-- --------------------------------------------------------------------------
+
+GRANT ALL ON TABLE public.app_user TO tutorgrader_backend;
+GRANT ALL ON TABLE public.canonical_storage_gc_queue TO tutorgrader_backend;
+GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE public.executor TO tutorgrader_backend;
+GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE public.executor_language TO tutorgrader_backend;
+GRANT ALL ON TABLE public.language TO tutorgrader_backend;
+GRANT ALL ON TABLE public.language_file_extension TO tutorgrader_backend;
+GRANT ALL ON TABLE public.name_change TO tutorgrader_backend;
+GRANT ALL ON TABLE public.password_change TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_version TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_version_language TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_version_stuff TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_version_test_case TO tutorgrader_backend;
+GRANT ALL ON TABLE public.stuff TO tutorgrader_backend;
+GRANT ALL ON TABLE public.submission TO tutorgrader_backend;
+GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE public.submission_compile_error TO tutorgrader_backend;
+GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE public.submission_judge_queue TO tutorgrader_backend;
+GRANT ALL ON TABLE public.test_case TO tutorgrader_backend;
+GRANT ALL ON TABLE public.test_result TO tutorgrader_backend;
+
+GRANT ALL ON TABLE public.app_user_view TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_list_view TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_status_counts TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_version_language_view TO tutorgrader_backend;
+GRANT ALL ON TABLE public.problem_version_stuff_view TO tutorgrader_backend;
+
+-- Function execution is intentionally service-role-only (except the internal
+-- trigger function, which is executable only by postgres).
+REVOKE ALL ON FUNCTION public.change_password_with_history(uuid,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.change_password_with_history(uuid,text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.change_username_with_history(uuid,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.change_username_with_history(uuid,text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.claim_submission_judge_jobs(text,integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_submission_judge_jobs(text,integer) TO service_role;
+
+REVOKE ALL ON FUNCTION public.complete_canonical_storage_gc(uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.complete_canonical_storage_gc(uuid[]) TO service_role;
+
+REVOKE ALL ON FUNCTION public.create_problem_draft(uuid,text,text,text,integer,integer,public.output_comparison,integer[],jsonb,uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_problem_draft(uuid,text,text,text,integer,integer,public.output_comparison,integer[],jsonb,uuid[]) TO service_role;
+
+REVOKE ALL ON FUNCTION public.create_problem_edit_draft(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_problem_edit_draft(uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.delete_problem_draft(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_problem_draft(uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.enqueue_submission_judge_job(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enqueue_submission_judge_job(uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.garbage_collect_canonical_content() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.garbage_collect_canonical_content() TO service_role;
+
+REVOKE ALL ON FUNCTION public.get_or_create_test_case(text,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_or_create_test_case(text,text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.publish_problem_draft(uuid,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.publish_problem_draft(uuid,uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.save_problem_draft(uuid,integer,text,text,text,integer,integer,public.output_comparison,integer[],jsonb,uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.save_problem_draft(uuid,integer,text,text,text,integer,integer,public.output_comparison,integer[],jsonb,uuid[]) TO service_role;
+
+-- Internal trigger functions retain the live service_role ACL where present.
+GRANT EXECUTE ON FUNCTION public.prevent_problem_version_identity_change() TO service_role;
+GRANT EXECUTE ON FUNCTION public.prevent_published_version_change() TO service_role;
+GRANT EXECUTE ON FUNCTION public.prevent_published_version_child_change() TO service_role;
+GRANT EXECUTE ON FUNCTION public.rls_auto_enable() TO service_role;
+GRANT EXECUTE ON FUNCTION public.touch_problem_from_version_record() TO service_role;
+GRANT EXECUTE ON FUNCTION public.update_problem_timestamp() TO service_role;
+GRANT EXECUTE ON FUNCTION public.validate_problem_version_pointers() TO service_role;
+GRANT EXECUTE ON FUNCTION public.validate_submission_language() TO service_role;
+GRANT EXECUTE ON FUNCTION public.validate_submission_target() TO service_role;
+GRANT EXECUTE ON FUNCTION public.validate_test_result_test_case() TO service_role;
+
+-- --------------------------------------------------------------------------
+-- Event trigger used by the current database to auto-enable RLS on public
+-- tables. This is TutorGrader-owned behavior, unlike Supabase's other event
+-- triggers.
+-- --------------------------------------------------------------------------
+
+CREATE EVENT TRIGGER ensure_rls
+ON ddl_command_end
+WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+EXECUTE FUNCTION public.rls_auto_enable();
+
+COMMIT;
+
+-- ============================================================================
+-- Platform configuration (not included in the transactional schema above)
+-- ============================================================================
+
+-- Supabase Storage bucket:
+--   id/name              = problem-files
+--   public               = false
+--   file_size_limit      = NULL
+--   allowed_mime_types   = NULL
+--
+-- The bucket is managed by Supabase's `storage` schema. Do not recreate
+-- storage.objects or other Supabase-managed storage internals here.
+--
+-- Current pg_cron job:
+--   name     = tutorgrader-judge-worker-every-minute
+--   schedule = * * * * *
+--   active   = true
+--
+-- Its current command is:
+--
+-- SELECT net.http_post(
+--     url := 'https://tutorgrader.vercel.app/api/internal/judge',
+--     headers := jsonb_build_object(
+--         'Content-Type', 'application/json',
+--         'Authorization', 'Bearer ' || (
+--             SELECT decrypted_secret
+--             FROM vault.decrypted_secrets
+--             WHERE name = 'tutorgrader_judge_worker_secret'
+--             LIMIT 1
+--         )
+--     ),
+--     body := '{}'::jsonb,
+--     timeout_milliseconds := 60000
+-- );
+--
+-- Intentionally NOT auto-scheduled by this baseline: the endpoint and Vault
+-- secret are environment-specific deployment configuration. Configure the
+-- job separately in the target Supabase project after the backend endpoint
+-- and Vault secret exist.

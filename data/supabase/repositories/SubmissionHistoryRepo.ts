@@ -1,5 +1,5 @@
 
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
 export type SubmissionHistoryTestResult = {
 	testCaseOrder: number;
@@ -85,7 +85,7 @@ type CompileErrorRow = {
 	diagnostic: string;
 };
 
-export class SubmissionHistoryRepository {
+export class SubmissionHistoryRepo {
 	async findHistory(
 		userId: string,
 		problemId?: string,

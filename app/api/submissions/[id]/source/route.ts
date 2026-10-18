@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { requireApiUser, route } from "@/lib/http";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { StuffRepository } from "@/domain/stuff/StuffRepository";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
 
 export const runtime = "nodejs";
 
-const stuffRepository = new StuffRepository();
+const stuffRepo = new StuffRepo();
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -40,7 +40,7 @@ export const GET = route<Props>(async (_request, { params }) => {
 		);
 	}
 
-	const stuff = await stuffRepository.findById(
+	const stuff = await stuffRepo.findById(
 		submission.source_stuff_id,
 	);
 

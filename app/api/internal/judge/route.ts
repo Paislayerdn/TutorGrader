@@ -1,8 +1,8 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-import { JudgeService } from "@/domain/executor/JudgeService";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { JudgeService } from "@/services/JudgeService";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

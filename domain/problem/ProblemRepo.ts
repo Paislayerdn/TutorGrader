@@ -1,9 +1,9 @@
 
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
+import { ProblemVersionRepo } from "@/data/supabase/repositories/ProblemVersionRepo";
 import { Problem } from "./Problem";
 import { ProblemStatus } from "./ProblemStatus";
-import { ProblemVersionRepository } from "./version/ProblemVersionRepository";
 import { OutputComparison } from "./version/OutputComparison";
 import { TestCase } from "./TestCase";
 
@@ -72,11 +72,11 @@ type PublishedDraftRow = {
 	current_draft_number: number;
 };
 
-export class ProblemRepository {
+export class ProblemRepo {
 	private static readonly PROBLEM_COLUMNS =
 		"id, status, current_version_number, current_draft_number, created_at, updated_at, created_by";
 
-	private readonly problemVersionRepository = new ProblemVersionRepository();
+	private readonly problemVersionRepo = new ProblemVersionRepo();
 
 	async createDraft(
 		data: CreateProblemDraftData,
@@ -146,7 +146,7 @@ export class ProblemRepository {
 			throw new Error("Problem edit draft RPC returned invalid data.");
 		}
 
-		const draft = await this.problemVersionRepository.findProblemVersion(
+		const draft = await this.problemVersionRepo.findProblemVersion(
 			problemId,
 			result.version_number,
 		);
@@ -329,7 +329,7 @@ export class ProblemRepository {
 	async findById(id: string): Promise<Problem | null> {
 		const { data, error } = await supabaseAdmin
 			.from("problem")
-			.select(ProblemRepository.PROBLEM_COLUMNS)
+			.select(ProblemRepo.PROBLEM_COLUMNS)
 			.eq("id", id)
 			.maybeSingle();
 
@@ -346,7 +346,7 @@ export class ProblemRepository {
 	async findAll(): Promise<Problem[]> {
 		const { data, error } = await supabaseAdmin
 			.from("problem")
-			.select(ProblemRepository.PROBLEM_COLUMNS)
+			.select(ProblemRepo.PROBLEM_COLUMNS)
 			.order("created_at", { ascending: true });
 
 		if (error) {
@@ -362,14 +362,14 @@ export class ProblemRepository {
 	private async createProblem(row: ProblemRow): Promise<Problem> {
 		const currentVersion = row.current_version_number === null
 			? null
-			: await this.problemVersionRepository.findProblemVersion(
+			: await this.problemVersionRepo.findProblemVersion(
 				row.id,
 				row.current_version_number,
 			);
 
 		const draft = row.current_draft_number === null
 			? null
-			: await this.problemVersionRepository.findProblemVersion(
+			: await this.problemVersionRepo.findProblemVersion(
 				row.id,
 				row.current_draft_number,
 			);

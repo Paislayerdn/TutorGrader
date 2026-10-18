@@ -1,21 +1,21 @@
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth-guards";
-import { UserRepository } from "@/domain/user/UserRepository";
+import { UserRepo } from "@/data/supabase/repositories/UserRepo";
 import AccountForm from "./AccountForm";
 
-const userRepository = new UserRepository();
+const userRepo = new UserRepo();
 
 export default async function AccountPage() {
 	const user = await requireUser();
 
-	const accountUser = await userRepository.findById(user.id);
+	const accountUser = await userRepo.findById(user.id);
 
 	if (!accountUser) {
 		redirect("/login?error=unauthorized");
 	}
 
-	const creator = await userRepository.findById(accountUser.createdById);
+	const creator = await userRepo.findById(accountUser.createdById);
 
 	return (
 		<AccountForm

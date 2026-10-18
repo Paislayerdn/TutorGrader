@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
 export type CreateSubmissionData = {
 	userId: string;
@@ -30,7 +30,7 @@ type SubmissionRow = {
 	source_stuff_id: string;
 };
 
-export class SubmissionRepository {
+export class SubmissionRepo {
 	async create(data: CreateSubmissionData): Promise<SubmissionData> {
 		const { data: row, error } = await supabaseAdmin
 			.from("submission")

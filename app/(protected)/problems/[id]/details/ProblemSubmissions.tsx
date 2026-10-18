@@ -1,4 +1,4 @@
-import type { SubmissionHistoryGroup } from "@/domain/submission/SubmissionHistoryRepository";
+import type { SubmissionHistoryGroup } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
 import SubmissionList from "@/components/SubmissionList";
 

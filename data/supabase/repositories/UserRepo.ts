@@ -1,11 +1,11 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
-import { Admin } from "./Admin";
-import { Owner } from "./Owner";
-import { User } from "./User";
-import { UserData } from "./UserData";
-import { UserStatus } from "./UserStatus";
-import { Role } from "./Role";
+import { Admin } from "@/domain/user/Admin";
+import { Owner } from "@/domain/user/Owner";
+import { User } from "@/domain/user/User";
+import { UserData } from "@/domain/user/UserData";
+import { UserStatus } from "@/domain/user/UserStatus";
+import { Role } from "@/domain/user/Role";
 
 type UserRow = {
 	id: string;
@@ -20,7 +20,7 @@ type UserRow = {
 	creator_registered_name: string | null;
 };
 
-export class UserRepository {
+export class UserRepo {
 	async findById(id: string): Promise<User | null> {
 		const { data, error } = await supabaseAdmin
 			.from("app_user_view")

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import argon2 from "argon2";
 
 import { requireApiUser } from "@/lib/http";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { createSession } from "@/lib/session";
 
 export async function handlePassword(body: {

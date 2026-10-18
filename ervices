@@ -1,0 +1,631 @@
+warning: in the working copy of 'app/api/internal/judge/route.ts', CRLF will be replaced by LF the next time Git touches it
+[1mdiff --git a/app/api/internal/judge/route.ts b/app/api/internal/judge/route.ts[m
+[1mindex e2317c1..2dda499 100644[m
+[1m--- a/app/api/internal/judge/route.ts[m
+[1m+++ b/app/api/internal/judge/route.ts[m
+[36m@@ -1,153 +1,513 @@[m
+[31m-import { randomUUID, timingSafeEqual } from "node:crypto";[m
+[31m-import { NextRequest, NextResponse } from "next/server";[m
+[32m+[m[32mimport { supabaseAdmin } from "@/data/supabase/supabase-admin";[m
+[32m+[m[32mimport { OutputComparison } from "@/domain/problem/version/OutputComparison";[m
+ [m
+[31m-import { JudgeService } from "@/domain/executor/JudgeService";[m
+[31m-import { supabaseAdmin } from "@/lib/supabase-admin";[m
+[32m+[m[32mimport { ExecutorRegistry } from "@/domain/executor/ExecutorRegistry";[m
+[32m+[m[32mimport { OutputComparator } from "@/domain/executor/OutputComparator";[m
+[32m+[m[32mimport type { ExecutionErrorKind } from "@/domain/executor/ExecutionError";[m
+[32m+[m[32mimport type { JudgeVerdict } from "@/domain/executor/JudgeVerdict";[m
+ [m
+[31m-export const runtime = "nodejs";[m
+[31m-export const maxDuration = 60;[m
+[32m+[m[32mtype SubmissionRow = {[m
+[32m+[m	[32mid: string;[m
+[32m+[m	[32muser_id: string;[m
+[32m+[m	[32mproblem_id: string;[m
+[32m+[m	[32mversion_number: number;[m
+[32m+[m	[32mlanguage_id: number;[m
+[32m+[m	[32mstatus: string;[m
+[32m+[m	[32msource_stuff_id: string;[m
+[32m+[m[32m};[m
+ [m
+[31m-const MAX_ATTEMPTS = 5;[m
+[32m+[m[32mtype VersionRow = {[m
+[32m+[m	[32mstatus: string;[m
+[32m+[m	[32mtime_limit_ms: number;[m
+[32m+[m	[32mmemory_limit_kb: number;[m
+[32m+[m	[32moutput_comparison: OutputComparison;[m
+[32m+[m[32m};[m
+ [m
+[31m-type JudgeJob = {[m
+[31m-	id: number;[m
+[31m-	submission_id: string;[m
+[31m-	attempts: number;[m
+[32m+[m[32mtype StuffRow = {[m
+[32m+[m	[32mbucket: string;[m
+[32m+[m	[32mstorage_path: string;[m
+ };[m
+ [m
+[31m-function authorized(request: NextRequest): boolean {[m
+[31m-	const secret = process.env.JUDGE_WORKER_SECRET;[m
+[32m+[m[32mtype TestLinkRow = {[m
+[32m+[m	[32morder: number;[m
+[32m+[m	[32mtest_case_id: string;[m
+[32m+[m[32m};[m
+ [m
+[31m-	if (!secret) return false;[m
+[32m+[m[32mtype TestCaseRow = {[m
+[32m+[m	[32mid: string;[m
+[32m+[m	[32minput: string;[m
+[32m+[m	[32mexpected_output: string;[m
+[32m+[m[32m};[m
+ [m
+[31m-	const authorization = request.headers.get("authorization");[m
+[32m+[m[32mconst TERMINAL_STATUSES = new Set([[m
+[32m+[m	[32m"COMPLETED",[m
+[32m+[m	[32m"COMPILE_ERROR",[m
+[32m+[m	[32m"REJECTED",[m
+[32m+[m	[32m"PROVIDER_ERROR",[m
+[32m+[m[32m]);[m
+ [m
+[31m-	if (!authorization?.startsWith("Bearer ")) return false;[m
+[32m+[m[32mconst MAX_DIAGNOSTIC_LENGTH = 12_000;[m
+ [m
+[31m-	const supplied = Buffer.from(authorization.slice(7));[m
+[31m-	const expected = Buffer.from(secret);[m
+[32m+[m[32mexport class JudgeService {[m
+[32m+[m	[32mprivate readonly executorRegistry = new ExecutorRegistry();[m
+ [m
+[31m-	return ([m
+[31m-		supplied.length === expected.length &&[m
+[31m-		timingSafeEqual(supplied, expected)[m
+[31m-	);[m
+[31m-}[m
+[32m+[m	[32masync judge(submissionId: string): Promise<void> {[m
+[32m+[m		[32m// 1. Load submission.[m
+[32m+[m		[32mconst { data: submissionData, error: submissionError } =[m
+[32m+[m			[32mawait supabaseAdmin[m
+[32m+[m				[32m.from("submission")[m
+[32m+[m				[32m.select([m
+[32m+[m					[32m"id, user_id, problem_id, version_number, language_id, status, source_stuff_id",[m
+[32m+[m				[32m)[m
+[32m+[m				[32m.eq("id", submissionId)[m
+[32m+[m				[32m.maybeSingle();[m
+ [m
+[31m-export async function POST(request: NextRequest) {[m
+[31m-	if (!authorized(request)) {[m
+[31m-		return NextResponse.json([m
+[31m-			{ error: "Unauthorized." },[m
+[31m-			{ status: 401 },[m
+[31m-		);[m
+[31m-	}[m
+[32m+[m		[32mif (submissionError || !submissionData) {[m
+[32m+[m			[32mconsole.error("Judge submission lookup failed:", submissionError);[m
+[32m+[m			[32mthrow new Error("Unable to load submission.");[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mconst submission = submissionData as SubmissionRow;[m
+ [m
+[31m-	const workerId = randomUUID();[m
+[32m+[m		[32mif (TERMINAL_STATUSES.has(submission.status)) return;[m
+ [m
+[31m-	const { data, error } = await supabaseAdmin.rpc([m
+[31m-		"claim_submission_judge_jobs",[m
+[31m-		{[m
+[31m-			p_worker_id: workerId,[m
+[31m-			p_batch_size: 1,[m
+[31m-		},[m
+[31m-	);[m
+[32m+[m		[32m// 2. Validate the problem and its version.[m
+[32m+[m		[32mconst { data: problemData, error: problemError } =[m
+[32m+[m			[32mawait supabaseAdmin[m
+[32m+[m				[32m.from("problem")[m
+[32m+[m				[32m.select("status, current_version_number")[m
+[32m+[m				[32m.eq("id", submission.problem_id)[m
+[32m+[m				[32m.maybeSingle();[m
+[32m+[m
+[32m+[m		[32mif (problemError || !problemData) {[m
+[32m+[m			[32mconsole.error("Judge problem lookup failed:", problemError);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+ [m
+[31m-	if (error) {[m
+[31m-		console.error("Unable to claim judge job:", error);[m
+[32m+[m		[32mif ([m
+[32m+[m			[32mproblemData.status !== "ACTIVE" ||[m
+[32m+[m			[32mproblemData.current_version_number !== submission.version_number[m
+[32m+[m		[32m) {[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "REJECTED");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mconst { data: versionData, error: versionError } =[m
+[32m+[m			[32mawait supabaseAdmin[m
+[32m+[m				[32m.from("problem_version")[m
+[32m+[m				[32m.select([m
+[32m+[m					[32m"status, time_limit_ms, memory_limit_kb, output_comparison",[m
+[32m+[m				[32m)[m
+[32m+[m				[32m.eq("problem_id", submission.problem_id)[m
+[32m+[m				[32m.eq("version_number", submission.version_number)[m
+[32m+[m				[32m.maybeSingle();[m
+[32m+[m
+[32m+[m		[32mif (versionError || !versionData) {[m
+[32m+[m			[32mconsole.error("Judge version lookup failed:", versionError);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mconst version = versionData as VersionRow;[m
+[32m+[m
+[32m+[m		[32mif (version.status !== "PUBLISHED") {[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "REJECTED");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32m// 3. Download the submitted source code.[m
+[32m+[m		[32mconst { data: stuffData, error: stuffError } =[m
+[32m+[m			[32mawait supabaseAdmin[m
+[32m+[m				[32m.from("stuff")[m
+[32m+[m				[32m.select("bucket, storage_path")[m
+[32m+[m				[32m.eq("id", submission.source_stuff_id)[m
+[32m+[m				[32m.maybeSingle();[m
+[32m+[m
+[32m+[m		[32mif (stuffError || !stuffData) {[m
+[32m+[m			[32mconsole.error("Judge source lookup failed:", stuffError);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+ [m
+[31m-		return NextResponse.json([m
+[31m-			{ error: "Unable to claim a judging job." },[m
+[31m-			{ status: 500 },[m
+[32m+[m		[32mconst stuff = stuffData as StuffRow;[m
+[32m+[m
+[32m+[m		[32mconst { data: sourceFile, error: downloadError } =[m
+[32m+[m			[32mawait supabaseAdmin.storage[m
+[32m+[m				[32m.from(stuff.bucket)[m
+[32m+[m				[32m.download(stuff.storage_path);[m
+[32m+[m
+[32m+[m		[32mif (downloadError || !sourceFile) {[m
+[32m+[m			[32mconsole.error("Judge source download failed:", downloadError);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mlet sourceCode: string;[m
+[32m+[m
+[32m+[m		[32mtry {[m
+[32m+[m			[32msourceCode = new TextDecoder("utf-8", { fatal: true }).decode([m
+[32m+[m				[32mawait sourceFile.arrayBuffer(),[m
+[32m+[m			[32m);[m
+[32m+[m		[32m} catch {[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "REJECTED");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32m// 4. Load test cases in their configured order.[m
+[32m+[m		[32mconst { data: linkData, error: linkError } =[m
+[32m+[m			[32mawait supabaseAdmin[m
+[32m+[m				[32m.from("problem_version_test_case")[m
+[32m+[m				[32m.select('"order", test_case_id')[m
+[32m+[m				[32m.eq("problem_id", submission.problem_id)[m
+[32m+[m				[32m.eq("version_number", submission.version_number)[m
+[32m+[m				[32m.order("order", { ascending: true });[m
+[32m+[m
+[32m+[m		[32mif (linkError || !linkData || linkData.length === 0) {[m
+[32m+[m			[32mconsole.error("Judge test-case lookup failed:", linkError);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mconst links = linkData as TestLinkRow[];[m
+[32m+[m
+[32m+[m		[32mconst { data: testCaseData, error: testCaseError } =[m
+[32m+[m			[32mawait supabaseAdmin[m
+[32m+[m				[32m.from("test_case")[m
+[32m+[m				[32m.select("id, input, expected_output")[m
+[32m+[m				[32m.in([m
+[32m+[m					[32m"id",[m
+[32m+[m					[32mlinks.map(link => link.test_case_id),[m
+[32m+[m				[32m);[m
+[32m+[m
+[32m+[m		[32mif (testCaseError || !testCaseData) {[m
+[32m+[m			[32mconsole.error([m
+[32m+[m				[32m"Judge test-case content lookup failed:",[m
+[32m+[m				[32mtestCaseError,[m
+[32m+[m			[32m);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mconst testCaseById = new Map([m
+[32m+[m			[32m(testCaseData as TestCaseRow[]).map(testCase => [[m
+[32m+[m				[32mtestCase.id,[m
+[32m+[m				[32mtestCase,[m
+[32m+[m			[32m]),[m
+ 		);[m
+[31m-	}[m
+ [m
+[31m-	const jobs = (data ?? []) as JudgeJob[];[m
+[32m+[m		[32mconst orderedCases: {[m
+[32m+[m			[32morder: number;[m
+[32m+[m			[32minput: string;[m
+[32m+[m			[32mexpectedOutput: string;[m
+[32m+[m		[32m}[] = [];[m
+ [m
+[31m-	if (jobs.length === 0) {[m
+[31m-		return NextResponse.json({[m
+[31m-			processed: false,[m
+[31m-			message: "No jobs are ready.",[m
+[31m-		});[m
+[31m-	}[m
+[32m+[m		[32mfor (const link of links) {[m
+[32m+[m			[32mconst testCase = testCaseById.get(link.test_case_id);[m
+ [m
+[31m-	const job = jobs[0];[m
+[32m+[m			[32mif (!testCase) {[m
+[32m+[m				[32mconsole.error("A linked test case could not be loaded.");[m
+[32m+[m				[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m				[32mreturn;[m
+[32m+[m			[32m}[m
+[32m+[m
+[32m+[m			[32morderedCases.push({[m
+[32m+[m				[32morder: link.order,[m
+[32m+[m				[32minput: testCase.input,[m
+[32m+[m				[32mexpectedOutput: testCase.expected_output,[m
+[32m+[m			[32m});[m
+[32m+[m		[32m}[m
+ [m
+[31m-	try {[m
+[31m-		const judge = new JudgeService();[m
+[32m+[m		[32m// 5. Resolve the execution provider and compiler.[m
+[32m+[m		[32mlet selection;[m
+ [m
+[31m-		await judge.judge(job.submission_id);[m
+[32m+[m		[32mtry {[m
+[32m+[m			[32mselection = await this.executorRegistry.resolve([m
+[32m+[m				[32msubmission.language_id,[m
+[32m+[m			[32m);[m
+[32m+[m		[32m} catch (error) {[m
+[32m+[m			[32mconsole.error("No execution provider available:", error);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+ [m
+[31m-		const { error: finishError } = await supabaseAdmin[m
+[31m-			.from("submission_judge_queue")[m
+[32m+[m		[32mconst { error: selectionError } = await supabaseAdmin[m
+[32m+[m			[32m.from("submission")[m
+ 			.update({[m
+[31m-				status: "COMPLETED",[m
+[31m-				locked_until: null,[m
+[31m-				locked_by: null,[m
+[31m-				last_error: null,[m
+[31m-				finished_at: new Date().toISOString(),[m
+[31m-				updated_at: new Date().toISOString(),[m
+[32m+[m				[32mexecutor_id: selection.executorId,[m
+[32m+[m				[32mcompiler_id: selection.compilerId,[m
+[32m+[m				[32mruntime_version: selection.runtimeVersion,[m
+[32m+[m				[32mstatus: "COMPILING",[m
+[32m+[m				[32mdiagnostic: null,[m
+ 			})[m
+[31m-			.eq("id", job.id)[m
+[31m-			.eq("locked_by", workerId)[m
+[31m-			.eq("status", "RUNNING");[m
+[32m+[m			[32m.eq("id", submissionId);[m
+[32m+[m
+[32m+[m		[32mif (selectionError) {[m
+[32m+[m			[32mconsole.error("Unable to save executor selection:", selectionError);[m
+[32m+[m			[32mthrow new Error("Unable to start judging.");[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32m// 6. Compile ONCE, before executing any test case.[m
+[32m+[m		[32mlet compilation;[m
+[32m+[m
+[32m+[m		[32mtry {[m
+[32m+[m			[32mcompilation = await selection.executor.compile({[m
+[32m+[m				[32msourceCode,[m
+[32m+[m				[32mcompilerId: selection.compilerId,[m
+[32m+[m			[32m});[m
+[32m+[m		[32m} catch (error) {[m
+[32m+[m			[32mconsole.error("Compilation provider threw an error:", error);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32mif (!compilation.success) {[m
+[32m+[m			[32mif (compilation.error.kind === "COMPILE_ERROR") {[m
+[32m+[m				[32mconst diagnostic = this.limitDiagnostic([m
+[32m+[m					[32mcompilation.error.diagnostic ??[m
+[32m+[m						[32mcompilation.error.message,[m
+[32m+[m				[32m);[m
+[32m+[m
+[32m+[m				[32m// A compile-error submission must have no test results.[m
+[32m+[m				[32mconst { error: deleteResultsError } = await supabaseAdmin[m
+[32m+[m					[32m.from("test_result")[m
+[32m+[m					[32m.delete()[m
+[32m+[m					[32m.eq("submission_id", submissionId);[m
+[32m+[m
+[32m+[m				[32mif (deleteResultsError) {[m
+[32m+[m					[32mconsole.error([m
+[32m+[m						[32m"Unable to clear old test results:",[m
+[32m+[m						[32mdeleteResultsError,[m
+[32m+[m					[32m);[m
+[32m+[m					[32mawait this.failSubmission([m
+[32m+[m						[32msubmissionId,[m
+[32m+[m						[32m"PROVIDER_ERROR",[m
+[32m+[m					[32m);[m
+[32m+[m					[32mreturn;[m
+[32m+[m				[32m}[m
+[32m+[m
+[32m+[m				[32mconst { error: saveCompileError } = await supabaseAdmin[m
+[32m+[m					[32m.from("submission_compile_error")[m
+[32m+[m					[32m.upsert([m
+[32m+[m						[32m{[m
+[32m+[m							[32msubmission_id: submissionId,[m
+[32m+[m							[32mdiagnostic,[m
+[32m+[m						[32m},[m
+[32m+[m						[32m{ onConflict: "submission_id" },[m
+[32m+[m					[32m);[m
+ [m
+[31m-		if (finishError) {[m
+[31m-			console.error("Unable to complete judge job:", finishError);[m
+[32m+[m				[32mif (saveCompileError) {[m
+[32m+[m					[32mconsole.error([m
+[32m+[m						[32m"Unable to save compiler diagnostic:",[m
+[32m+[m						[32msaveCompileError,[m
+[32m+[m					[32m);[m
+[32m+[m					[32mawait this.failSubmission([m
+[32m+[m						[32msubmissionId,[m
+[32m+[m						[32m"PROVIDER_ERROR",[m
+[32m+[m					[32m);[m
+[32m+[m					[32mreturn;[m
+[32m+[m				[32m}[m
+ [m
+[31m-			return NextResponse.json([m
+[31m-				{ error: "Judging finished, but queue completion failed." },[m
+[31m-				{ status: 500 },[m
+[32m+[m				[32mawait this.finishSubmission([m
+[32m+[m					[32msubmissionId,[m
+[32m+[m					[32m"COMPILE_ERROR",[m
+[32m+[m					[32mnull,[m
+[32m+[m				[32m);[m
+[32m+[m				[32mreturn;[m
+[32m+[m			[32m}[m
+[32m+[m
+[32m+[m			[32m// A failed provider request is not a compilation error.[m
+[32m+[m			[32mconsole.error([m
+[32m+[m				[32m"Compilation provider failed:",[m
+[32m+[m				[32mcompilation.error,[m
+[32m+[m			[32m);[m
+[32m+[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32m// Compilation succeeded. Remove any old compile-error record and[m
+[32m+[m		[32m// stale test results before starting a fresh test run.[m
+[32m+[m		[32mconst { error: deleteCompileError } = await supabaseAdmin[m
+[32m+[m			[32m.from("submission_compile_error")[m
+[32m+[m			[32m.delete()[m
+[32m+[m			[32m.eq("submission_id", submissionId);[m
+[32m+[m
+[32m+[m		[32mif (deleteCompileError) {[m
+[32m+[m			[32mconsole.error([m
+[32m+[m				[32m"Unable to clear old compiler diagnostic:",[m
+[32m+[m				[32mdeleteCompileError,[m
+ 			);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+ 		}[m
+ [m
+[31m-		return NextResponse.json({[m
+[31m-			processed: true,[m
+[31m-			submissionId: job.submission_id,[m
+[31m-			outcome: "PROCESSED",[m
+[31m-		});[m
+[31m-	} catch (error) {[m
+[31m-		console.error("Judge job failed:", error);[m
+[32m+[m		[32mconst { error: deleteOldResults } = await supabaseAdmin[m
+[32m+[m			[32m.from("test_result")[m
+[32m+[m			[32m.delete()[m
+[32m+[m			[32m.eq("submission_id", submissionId);[m
+[32m+[m
+[32m+[m		[32mif (deleteOldResults) {[m
+[32m+[m			[32mconsole.error("Unable to clear old test results:", deleteOldResults);[m
+[32m+[m			[32mawait this.failSubmission(submissionId, "PROVIDER_ERROR");[m
+[32m+[m			[32mreturn;[m
+[32m+[m		[32m}[m
+ [m
+[31m-		const message =[m
+[31m-			error instanceof Error[m
+[31m-				? error.message.slice(0, 2000)[m
+[31m-				: "Unknown worker error.";[m
+[32m+[m		[32mconst { error: testingError } = await supabaseAdmin[m
+[32m+[m			[32m.from("submission")[m
+[32m+[m			[32m.update({ status: "TESTING", diagnostic: null })[m
+[32m+[m			[32m.eq("id", submissionId);[m
+[32m+[m
+[32m+[m		[32mif (testingError) {[m
+[32m+[m			[32mconsole.error("Unable to update judging status:", testingError);[m
+[32m+[m			[32mthrow new Error("Unable to update submission status.");[m
+[32m+[m		[32m}[m
+ [m
+[31m-		const exhausted = job.attempts >= MAX_ATTEMPTS;[m
+[31m-		const retryDelayMs = Math.min([m
+[31m-			30_000 * 2 ** (job.attempts - 1),[m
+[31m-			15 * 60_000,[m
+[32m+[m		[32m// 7. Run EVERY test case.[m
+[32m+[m		[32m// A wrong answer, runtime error, or provider error on one test[m
+[32m+[m		[32m// must not prevent the remaining test cases from being attempted.[m
+[32m+[m		[32mlet hasProviderError = false;[m
+[32m+[m
+[32m+[m		[32mfor (const testCase of orderedCases) {[m
+[32m+[m			[32mlet verdict: JudgeVerdict;[m
+[32m+[m			[32mlet output: string | null = null;[m
+[32m+[m			[32mlet diagnostic: string | null = null;[m
+[32m+[m			[32mlet executionTimeMs: number | null = null;[m
+[32m+[m			[32mlet memoryUsageKb: number | null = null;[m
+[32m+[m
+[32m+[m			[32mtry {[m
+[32m+[m				[32mconst result = await selection.executor.execute({[m
+[32m+[m					[32msourceCode,[m
+[32m+[m					[32mcompilerId: selection.compilerId,[m
+[32m+[m					[32mstdin: testCase.input,[m
+[32m+[m					[32mtimeLimitMs: version.time_limit_ms,[m
+[32m+[m					[32mmemoryLimitKb: version.memory_limit_kb,[m
+[32m+[m				[32m});[m
+[32m+[m
+[32m+[m				[32mif (!result.success) {[m
+[32m+[m					[32mverdict = this.mapExecutionError(result.error.kind);[m
+[32m+[m					[32mdiagnostic = this.limitDiagnostic([m
+[32m+[m						[32mresult.error.diagnostic ?? result.error.message,[m
+[32m+[m					[32m);[m
+[32m+[m					[32moutput = result.error.output ?? null;[m
+[32m+[m					[32mexecutionTimeMs = result.error.executionTimeMs;[m
+[32m+[m					[32mmemoryUsageKb = result.error.memoryUsageKb;[m
+[32m+[m
+[32m+[m					[32mif (verdict === "PROVIDER_ERROR") {[m
+[32m+[m						[32mhasProviderError = true;[m
+[32m+[m					[32m}[m
+[32m+[m				[32m} else {[m
+[32m+[m					[32moutput = result.output;[m
+[32m+[m					[32mdiagnostic = this.limitDiagnostic(result.stderr);[m
+[32m+[m					[32mexecutionTimeMs = result.executionTimeMs;[m
+[32m+[m					[32mmemoryUsageKb = result.memoryUsageKb;[m
+[32m+[m
+[32m+[m					[32mverdict = OutputComparator.matches([m
+[32m+[m						[32mresult.output,[m
+[32m+[m						[32mtestCase.expectedOutput,[m
+[32m+[m						[32mversion.output_comparison,[m
+[32m+[m					[32m)[m
+[32m+[m						[32m? "PASS"[m
+[32m+[m						[32m: "WRONG_ANSWER";[m
+[32m+[m				[32m}[m
+[32m+[m			[32m} catch (error) {[m
+[32m+[m				[32mconsole.error([m
+[32m+[m					[32m`Execution failed unexpectedly for test ${testCase.order}:`,[m
+[32m+[m					[32merror,[m
+[32m+[m				[32m);[m
+[32m+[m
+[32m+[m				[32mverdict = "PROVIDER_ERROR";[m
+[32m+[m				[32mdiagnostic = "The execution provider failed unexpectedly.";[m
+[32m+[m				[32mhasProviderError = true;[m
+[32m+[m			[32m}[m
+[32m+[m
+[32m+[m			[32mconst { error: resultSaveError } = await supabaseAdmin[m
+[32m+[m				[32m.from("test_result")[m
+[32m+[m				[32m.upsert([m
+[32m+[m					[32m{[m
+[32m+[m						[32msubmission_id: submission.id,[m
+[32m+[m						[32mproblem_id: submission.problem_id,[m
+[32m+[m						[32mversion_number: submission.version_number,[m
+[32m+[m						[32mtest_case_order: testCase.order,[m
+[32m+[m						[32mstatus: verdict,[m
+[32m+[m						[32mexecution_time_ms: executionTimeMs,[m
+[32m+[m						[32mmemory_usage_kb: memoryUsageKb,[m
+[32m+[m						[32moutput,[m
+[32m+[m						[32mdiagnostic,[m
+[32m+[m					[32m},[m
+[32m+[m					[32m{[m
+[32m+[m						[32monConflict: "submission_id,test_case_order",[m
+[32m+[m					[32m},[m
+[32m+[m				[32m);[m
+[32m+[m
+[32m+[m			[32mif (resultSaveError) {[m
+[32m+[m				[32mconsole.error([m
+[32m+[m					[32m`Unable to save test result ${testCase.order}:`,[m
+[32m+[m					[32mresultSaveError,[m
+[32m+[m				[32m);[m
+[32m+[m
+[32m+[m				[32m// Keep attempting the remaining tests even if one result[m
+[32m+[m				[32m// cannot be persisted.[m
+[32m+[m				[32mhasProviderError = true;[m
+[32m+[m			[32m}[m
+[32m+[m		[32m}[m
+[32m+[m
+[32m+[m		[32m// 8. Finalize only after every test has been attempted.[m
+[32m+[m		[32mawait this.finishSubmission([m
+[32m+[m			[32msubmissionId,[m
+[32m+[m			[32mhasProviderError ? "PROVIDER_ERROR" : "COMPLETED",[m
+[32m+[m			[32mhasProviderError[m
+[32m+[m				[32m? "One or more test cases could not be processed reliably."[m
+[32m+[m				[32m: null,[m
+ 		);[m
+[32m+[m	[32m}[m
+ [m
+[31m-		const now = Date.now();[m
+[32m+[m	[32mprivate mapExecutionError(kind: ExecutionErrorKind): JudgeVerdict {[m
+[32m+[m		[32mswitch (kind) {[m
+[32m+[m			[32mcase "COMPILE_ERROR":[m
+[32m+[m				[32mreturn "COMPILE_ERROR";[m
+[32m+[m			[32mcase "RUNTIME_ERROR":[m
+[32m+[m				[32mreturn "RUNTIME_ERROR";[m
+[32m+[m			[32mcase "TIME_LIMIT":[m
+[32m+[m				[32mreturn "TIME_LIMIT";[m
+[32m+[m			[32mcase "MEMORY_LIMIT":[m
+[32m+[m				[32mreturn "MEMORY_LIMIT";[m
+[32m+[m			[32mcase "PROVIDER_ERROR":[m
+[32m+[m				[32mreturn "PROVIDER_ERROR";[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+ [m
+[31m-		const { error: updateError } = await supabaseAdmin[m
+[31m-			.from("submission_judge_queue")[m
+[31m-			.update({[m
+[31m-				status: exhausted ? "FAILED" : "QUEUED",[m
+[31m-				available_at: new Date(now + retryDelayMs).toISOString(),[m
+[31m-				locked_until: null,[m
+[31m-				locked_by: null,[m
+[31m-				last_error: message,[m
+[31m-				finished_at: exhausted[m
+[31m-					? new Date(now).toISOString()[m
+[31m-					: null,[m
+[31m-				updated_at: new Date(now).toISOString(),[m
+[31m-			})[m
+[31m-			.eq("id", job.id)[m
+[31m-			.eq("locked_by", workerId)[m
+[31m-			.eq("status", "RUNNING");[m
+[32m+[m	[32mprivate async finishSubmission([m
+[32m+[m		[32msubmissionId: string,[m
+[32m+[m		[32mstatus: string,[m
+[32m+[m		[32mdiagnostic: string | null,[m
+[32m+[m	[32m): Promise<void> {[m
+[32m+[m		[32mconst { error } = await supabaseAdmin[m
+[32m+[m			[32m.from("submission")[m
+[32m+[m			[32m.update({ status, diagnostic })[m
+[32m+[m			[32m.eq("id", submissionId);[m
+ [m
+[31m-		if (updateError) {[m
+[31m-			console.error("Unable to record job failure:", updateError);[m
+[32m+[m		[32mif (error) {[m
+[32m+[m			[32mconsole.error("Unable to finalize submission:", error);[m
+[32m+[m			[32mthrow new Error("Unable to finalize submission.");[m
+ 		}[m
+[32m+[m	[32m}[m
+ [m
+[31m-		return NextResponse.json([m
+[31m-			{[m
+[31m-				processed: true,[m
+[31m-				submissionId: job.submission_id,[m
+[31m-				outcome: exhausted ? "FAILED" : "RETRY_QUEUED",[m
+[31m-			},[m
+[31m-			{ status: 500 },[m
+[32m+[m	[32mprivate async failSubmission([m
+[32m+[m		[32msubmissionId: string,[m
+[32m+[m		[32mstatus: "REJECTED" | "PROVIDER_ERROR",[m
+[32m+[m	[32m): Promise<void> {[m
+[32m+[m		[32mawait this.finishSubmission([m
+[32m+[m			[32msubmissionId,[m
+[32m+[m			[32mstatus,[m
+[32m+[m			[32mstatus === "REJECTED"[m
+[32m+[m				[32m? "This submission is no longer eligible for judging."[m
+[32m+[m				[32m: "The judging system could not process this submission.",[m
+ 		);[m
+ 	}[m
+[32m+[m
+[32m+[m	[32mprivate limitDiagnostic(value: string): string {[m
+[32m+[m		[32mreturn value.slice(0, MAX_DIAGNOSTIC_LENGTH);[m
+[32m+[m	[32m}[m
+ }[m
+[41m+[m

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { requireApiAdmin, route } from "@/lib/http";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
 
 type Props = {
@@ -11,7 +11,7 @@ type Props = {
 	}>;
 };
 
-const problemRepository = new ProblemRepository();
+const problemRepo = new ProblemRepo();
 
 export const DELETE = route<Props>(async (_request: Request, { params }) => {
 	await requireApiAdmin();
@@ -25,7 +25,7 @@ export const DELETE = route<Props>(async (_request: Request, { params }) => {
 		);
 	}
 
-	const problem = await problemRepository.findById(id);
+	const problem = await problemRepo.findById(id);
 
 	if (!problem) {
 		return NextResponse.json(
@@ -42,7 +42,7 @@ export const DELETE = route<Props>(async (_request: Request, { params }) => {
 	}
 
 	try {
-		const deletedStuff = await problemRepository.deleteDraft(id);
+		const deletedStuff = await problemRepo.deleteDraft(id);
 
 		const pathsByBucket = new Map<string, string[]>();
 

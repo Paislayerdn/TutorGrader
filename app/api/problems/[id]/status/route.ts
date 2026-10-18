@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireApiAdmin, route } from "@/lib/http";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { isUuid } from "@/lib/isUuid";
 
@@ -21,8 +21,8 @@ export const PATCH = route<Props>(async (request: Request, { params }) => {
 		);
 	}
 
-	const problemRepository = new ProblemRepository();
-	const problem = await problemRepository.findById(id);
+	const problemRepo = new ProblemRepo();
+	const problem = await problemRepo.findById(id);
 
 	if (!problem) {
 		return NextResponse.json(
@@ -67,7 +67,7 @@ export const PATCH = route<Props>(async (request: Request, { params }) => {
 	const status = body.status as ProblemStatus;
 
 	try {
-		await problemRepository.updateStatus(id, status);
+		await problemRepo.updateStatus(id, status);
 
 		return NextResponse.json({
 			problemId: id,

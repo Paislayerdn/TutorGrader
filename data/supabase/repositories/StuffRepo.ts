@@ -1,6 +1,6 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
-import { Stuff, type StuffData } from "./Stuff";
+import { Stuff, type StuffData } from "@/domain/stuff/Stuff";
 
 export type CreateStuffData = {
 	id: string;
@@ -21,14 +21,14 @@ type StuffRow = {
 	created_at: string;
 };
 
-export class StuffRepository {
+export class StuffRepo {
 	private static readonly STUFF_COLUMNS =
 		"id, file_extension, bucket, storage_path, uploaded_by, original_filename, created_at";
 
 	async findById(id: string): Promise<Stuff | null> {
 		const { data, error } = await supabaseAdmin
 			.from("stuff")
-			.select(StuffRepository.STUFF_COLUMNS)
+			.select(StuffRepo.STUFF_COLUMNS)
 			.eq("id", id)
 			.maybeSingle();
 

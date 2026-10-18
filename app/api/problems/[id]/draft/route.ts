@@ -3,9 +3,9 @@ import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
 import { requireApiAdmin, route } from "@/lib/http";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
-import { StuffRepository, type CreateStuffData, } from "@/domain/stuff/StuffRepository";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { StuffRepo, type CreateStuffData, } from "@/data/supabase/repositories/StuffRepo";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 import { ProblemVersionStatus } from "@/domain/problem/version/ProblemVersionStatus";
 import { isAllowedAttachment } from "@/lib/attachment-validation";
@@ -17,8 +17,8 @@ const BUCKET = "problem-files";
 const MAX_FILES = 10;
 const MAX_TOTAL_SIZE = 4 * 1024 * 1024;
 
-const problemRepository = new ProblemRepository();
-const stuffRepository = new StuffRepository();
+const problemRepo = new ProblemRepo();
+const stuffRepo = new StuffRepo();
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -216,7 +216,7 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 		);
 	}
 
-	const problem = await problemRepository.findById(problemId);
+	const problem = await problemRepo.findById(problemId);
 
 	if (!problem) {
 		return NextResponse.json(
@@ -288,7 +288,7 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 			});
 		}
 
-		await stuffRepository.createMany(stuffRecords);
+		await stuffRepo.createMany(stuffRecords);
 		metadataCreated = stuffRecords.length > 0;
 
 		const { data: removedFiles, error: saveError } =
@@ -338,7 +338,7 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 
 		if (metadataCreated) {
 			try {
-				await stuffRepository.deleteByIds(
+				await stuffRepo.deleteByIds(
 					stuffRecords.map(stuff => stuff.id),
 				);
 			} catch (cleanupError) {

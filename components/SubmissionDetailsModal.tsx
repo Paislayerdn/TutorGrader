@@ -1,6 +1,6 @@
 "use client";
 
-import type { SubmissionHistoryItem } from "@/domain/submission/SubmissionHistoryRepository";
+import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
 import styles from "./SubmissionDetailsModal.module.css";
 

@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { requireApiUser, route } from "@/lib/http";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { StuffRepository } from "@/domain/stuff/StuffRepository";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
 
 export const runtime = "nodejs";
 
-const stuffRepository = new StuffRepository();
-const problemRepository = new ProblemRepository();
+const stuffRepo = new StuffRepo();
+const problemRepo = new ProblemRepo();
 
 type Props = {
 	params: Promise<{
@@ -26,7 +26,7 @@ export const GET = route<Props>(async (_request, { params }) => {
 
 	const { id } = await params;
 
-	const stuff = await stuffRepository.findById(id);
+	const stuff = await stuffRepo.findById(id);
 
 	if (!stuff) {
 		return NextResponse.json(
@@ -59,7 +59,7 @@ export const GET = route<Props>(async (_request, { params }) => {
 	let hasAccess = false;
 
 	for (const link of links as ProblemVersionLink[]) {
-		const problem = await problemRepository.findById(link.problem_id);
+		const problem = await problemRepo.findById(link.problem_id);
 
 		if (!problem) continue;
 

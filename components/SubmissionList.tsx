@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import type { SubmissionHistoryItem } from "@/domain/submission/SubmissionHistoryRepository";
+import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import styles from "./SubmissionList.module.css";

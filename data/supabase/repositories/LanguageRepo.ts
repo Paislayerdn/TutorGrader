@@ -1,6 +1,6 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
-import { Language, type LanguageData } from "./Language";
+import { Language, type LanguageData } from "@/domain/language/Language";
 
 type LanguageRow = {
 	id: number;
@@ -13,7 +13,7 @@ type LanguageExtensionRow = {
 	extension: string;
 };
 
-export class LanguageRepository {
+export class LanguageRepo {
 	async findAll(): Promise<Language[]> {
 		const { data: languageRows, error: languageError } =
 			await supabaseAdmin

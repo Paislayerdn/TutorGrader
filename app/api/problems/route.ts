@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { requireApiAdmin, route } from "@/lib/http";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
-import { StuffRepository, type CreateStuffData } from "@/domain/stuff/StuffRepository";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { StuffRepo, type CreateStuffData } from "@/data/supabase/repositories/StuffRepo";
 import { TestCase } from "@/domain/problem/TestCase";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 import { isAllowedAttachment } from "@/lib/attachment-validation";
@@ -16,8 +16,8 @@ const BUCKET = "problem-files";
 const MAX_FILES = 10;
 const MAX_TOTAL_SIZE = 4 * 1024 * 1024;
 
-const problemRepository = new ProblemRepository();
-const stuffRepository = new StuffRepository();
+const problemRepo = new ProblemRepo();
+const stuffRepo = new StuffRepo();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -208,10 +208,10 @@ export const POST = route(async (request: Request) => {
 			});
 		}
 
-		await stuffRepository.createMany(stuffRecords);
+		await stuffRepo.createMany(stuffRecords);
 		metadataCreated = stuffRecords.length > 0;
 
-		const created = await problemRepository.createDraft({
+		const created = await problemRepo.createDraft({
 			createdById: currentUser.id,
 			name,
 			description,
@@ -240,7 +240,7 @@ export const POST = route(async (request: Request) => {
 
 		if (metadataCreated) {
 			try {
-				await stuffRepository.deleteByIds(
+				await stuffRepo.deleteByIds(
 					stuffRecords.map(stuff => stuff.id),
 				);
 			} catch (cleanupError) {

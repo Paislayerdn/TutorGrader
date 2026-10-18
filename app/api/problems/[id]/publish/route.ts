@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { requireApiAdmin, route } from "@/lib/http";
 import { isUuid } from "@/lib/isUuid";
 

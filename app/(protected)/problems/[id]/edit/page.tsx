@@ -1,10 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 
 import { getCurrentVisitor } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
-import { LanguageRepository } from "@/domain/language/LanguageRepository";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
 
 import CreateProblemForm from "../../create/CreateProblemForm";
@@ -68,8 +68,8 @@ export default async function EditProblemPage({ params }: Props) {
 		notFound();
 	}
 
-	const problemRepository = new ProblemRepository();
-	const problem = await problemRepository.findById(id);
+	const problemRepo = new ProblemRepo();
+	const problem = await problemRepo.findById(id);
 
 	if (!problem) {
 		notFound();
@@ -114,8 +114,8 @@ export default async function EditProblemPage({ params }: Props) {
 			: [row.test_case];
 	});
 
-	const languageRepository = new LanguageRepository();
-	const languages = await languageRepository.findAll();
+	const languageRepo = new LanguageRepo();
+	const languages = await languageRepo.findAll();
 
 	const initialData = {
 		problemId: id,

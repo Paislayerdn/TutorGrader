@@ -3,7 +3,7 @@ import Link from "next/link";
 import styles from "./page.module.css";
 
 import { getCurrentVisitor } from "@/lib/auth";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
 import { Admin } from "@/domain/user/Admin";
 import { Owner } from "@/domain/user/Owner";
 import GCButton from "@/components/GCButton";
@@ -16,8 +16,8 @@ export default async function ProblemsPage() {
 	const canManageProblems = user instanceof Admin;
 	const isOwner = user instanceof Owner;
 
-	const problemRepository = new ProblemRepository();
-	const items = await problemRepository.findAllForListing(
+	const problemRepo = new ProblemRepo();
+	const items = await problemRepo.findAllForListing(
 		canManageProblems,
 	);
 

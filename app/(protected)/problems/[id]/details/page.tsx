@@ -3,11 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import styles from "./page.module.css";
 
 import { getCurrentVisitor } from "@/lib/auth";
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { User } from "@/domain/user/User";
 import { Admin } from "@/domain/user/Admin";
-import { SubmissionHistoryRepository } from "@/domain/submission/SubmissionHistoryRepository";
+import { SubmissionHistoryRepo } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import { isUuid } from "@/lib/isUuid";
 
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
@@ -30,8 +30,8 @@ export default async function ProblemDetailsPage({ params }: Props) {
 		notFound();
 	}
 
-	const problemRepository = new ProblemRepository();
-	const problem = await problemRepository.findById(id);
+	const problemRepo = new ProblemRepo();
+	const problem = await problemRepo.findById(id);
 
 	if (!problem) {
 		notFound();
@@ -68,7 +68,7 @@ export default async function ProblemDetailsPage({ params }: Props) {
 		user instanceof User &&
 		!isAdmin &&
 		problem.status === ProblemStatus.ACTIVE
-			? await new SubmissionHistoryRepository().findHistory(
+			? await new SubmissionHistoryRepo().findHistory(
 				user.id,
 				problem.id,
 			)

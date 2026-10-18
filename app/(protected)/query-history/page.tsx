@@ -1,10 +1,10 @@
 
 import { requireOwner } from "@/lib/auth-guards";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import {
-	SubmissionHistoryRepository,
+	SubmissionHistoryRepo,
 	type SubmissionHistoryGroup,
-} from "@/domain/submission/SubmissionHistoryRepository";
+} from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import HistoryClient from "../history/HistoryClient";
 
 import styles from "./page.module.css";
@@ -71,7 +71,7 @@ export default async function QueryHistoryPage({ searchParams }: Props) {
 	let groups: SubmissionHistoryGroup[] | null = null;
 
 	if (targetUser) {
-		const repository = new SubmissionHistoryRepository();
+		const repository = new SubmissionHistoryRepo();
 		groups = await repository.findHistory(targetUser.id);
 	}
 

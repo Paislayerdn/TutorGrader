@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import type {
 	SubmissionHistoryGroup,
-} from "@/domain/submission/SubmissionHistoryRepository";
+} from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
 import SubmissionList from "@/components/SubmissionList";
 

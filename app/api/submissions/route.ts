@@ -1,19 +1,19 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
-import { ProblemRepository } from "@/domain/problem/ProblemRepository";
+import { ProblemRepo } from "@/domain/problem/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
-import { SubmissionRepository } from "@/domain/submission/SubmissionRepository";
-import { StuffRepository } from "@/domain/stuff/StuffRepository";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { SubmissionRepo } from "@/data/supabase/repositories/SubmissionRepo";
+import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { HttpError, requireApiUser, route } from "@/lib/http";
 
 const BUCKET = "problem-files";
 const MAX_SOURCE_SIZE = 1024 * 1024;
 
-const problemRepository = new ProblemRepository();
-const submissionRepository = new SubmissionRepository();
-const stuffRepository = new StuffRepository();
+const problemRepo = new ProblemRepo();
+const submissionRepo = new SubmissionRepo();
+const stuffRepo = new StuffRepo();
 
 export const POST = route(async req => {
 	const user = await requireApiUser();
@@ -38,7 +38,7 @@ export const POST = route(async req => {
 		throw new HttpError(400, "Source file is too large.");
 	}
 
-	const problem = await problemRepository.findById(problemId);
+	const problem = await problemRepo.findById(problemId);
 
 	if (!problem || problem.status !== ProblemStatus.ACTIVE) {
 		throw new HttpError(400, "Problem is not available for submission.");
@@ -91,7 +91,7 @@ export const POST = route(async req => {
 	}
 
 	try {
-		await stuffRepository.createMany([
+		await stuffRepo.createMany([
 			{
 				id: sourceStuffId,
 				fileExtension: extension,
@@ -102,7 +102,7 @@ export const POST = route(async req => {
 			},
 		]);
 
-		const submission = await submissionRepository.create({
+		const submission = await submissionRepo.create({
 			userId: user.id,
 			problemId: problem.id,
 			versionNumber: version.versionNumber,
@@ -118,7 +118,7 @@ export const POST = route(async req => {
 			{ status: 201 },
 		);
 	} catch (error) {
-		await stuffRepository.deleteByIds([sourceStuffId]);
+		await stuffRepo.deleteByIds([sourceStuffId]);
 
 		await supabaseAdmin.storage
 			.from(BUCKET)

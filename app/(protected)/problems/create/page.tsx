@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentVisitor } from "@/lib/auth";
-import { LanguageRepository } from "@/domain/language/LanguageRepository";
+import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
 
 import CreateProblemForm from "./CreateProblemForm";
 import styles from "./page.module.css";
@@ -15,8 +15,8 @@ export default async function CreateProblemPage() {
 		redirect("/problems");
 	}
 
-	const languageRepository = new LanguageRepository();
-	const languages = await languageRepository.findAll();
+	const languageRepo = new LanguageRepo();
+	const languages = await languageRepo.findAll();
 
 	return (
 		<main className={styles.page}>

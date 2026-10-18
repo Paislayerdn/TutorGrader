@@ -3,11 +3,11 @@ import "server-only";
 import { cache } from "react";
 
 import { getSession, getSessionStatus } from "@/lib/session";
-import { UserRepository } from "@/domain/user/UserRepository";
+import { UserRepo } from "@/data/supabase/repositories/UserRepo";
 import { UserStatus } from "@/domain/user/UserStatus";
 import { Visitor } from "@/domain/user/Visitor";
 
-const userRepository = new UserRepository();
+const userRepo = new UserRepo();
 
 export const getCurrentVisitor = cache(
 	async (): Promise<Visitor> => {
@@ -18,7 +18,7 @@ export const getCurrentVisitor = cache(
 		}
 
 		try {
-			const user = await userRepository.findById(session.userId);
+			const user = await userRepo.findById(session.userId);
 
 			if (!user || user.status !== UserStatus.ACTIVE) {
 				return new Visitor();

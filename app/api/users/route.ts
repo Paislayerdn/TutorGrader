@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import argon2 from "argon2";
 
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { requireApiAdmin, route } from "@/lib/http";
 
 export const runtime = "nodejs";

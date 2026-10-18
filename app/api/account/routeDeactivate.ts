@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/http";
 import { clearSession } from "@/lib/session";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
 export async function handleDeactivate() {
 	const user = await requireApiUser();

@@ -1,11 +1,11 @@
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
-import { LanguageRepository } from "@/domain/language/LanguageRepository";
-import { StuffRepository } from "@/domain/stuff/StuffRepository";
+import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
+import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
 
-import { ProblemVersion } from "./ProblemVersion";
-import { ProblemVersionStatus } from "./ProblemVersionStatus";
-import { OutputComparison } from "./OutputComparison";
+import { ProblemVersion } from "@/domain/problem/version/ProblemVersion";
+import { ProblemVersionStatus } from "@/domain/problem/version/ProblemVersionStatus";
+import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 
 type ProblemVersionRow = {
 	problem_id: string;
@@ -30,12 +30,12 @@ type StuffRow = {
 	stuff_id: string;
 };
 
-export class ProblemVersionRepository {
+export class ProblemVersionRepo {
 	private static readonly VERSION_COLUMNS =
 		"problem_id, version_number, status, name, description, difficulty, time_limit_ms, memory_limit_kb, output_comparison, created_at, published_by, published_at";
 
-	private readonly languageRepository = new LanguageRepository();
-	private readonly stuffRepository = new StuffRepository();
+	private readonly languageRepo = new LanguageRepo();
+	private readonly stuffRepo = new StuffRepo();
 
 	async findProblemVersion(
 		problemId: string,
@@ -43,7 +43,7 @@ export class ProblemVersionRepository {
 	): Promise<ProblemVersion | null> {
 		const { data, error } = await supabaseAdmin
 			.from("problem_version")
-			.select(ProblemVersionRepository.VERSION_COLUMNS)
+			.select(ProblemVersionRepo.VERSION_COLUMNS)
 			.eq("problem_id", problemId)
 			.eq("version_number", versionNumber)
 			.maybeSingle();
@@ -94,14 +94,14 @@ export class ProblemVersionRepository {
 		).map(item => item.stuff_id);
 
 		const stuffs = await Promise.all(
-			stuffIds.map(id => this.stuffRepository.findById(id)),
+			stuffIds.map(id => this.stuffRepo.findById(id)),
 		);
 
 		if (stuffs.some(stuff => stuff === null)) {
 			throw new Error("Unable to load problem version attachments.");
 		}
 
-		const languages = await this.languageRepository.findAll();
+		const languages = await this.languageRepo.findAll();
 		const languageByName = new Map(
 			languages.map(language => [language.name, language]),
 		);

@@ -2,13 +2,13 @@
 import styles from "./page.module.css";
 
 import { requireUser } from "@/lib/auth-guards";
-import { SubmissionHistoryRepository } from "@/domain/submission/SubmissionHistoryRepository";
+import { SubmissionHistoryRepo } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import HistoryClient from "./HistoryClient";
 
 export default async function HistoryPage() {
 	const user = await requireUser();
 	
-	const repository = new SubmissionHistoryRepository();
+	const repository = new SubmissionHistoryRepo();
 	const groups = await repository.findHistory(user.id);
 
 	return (

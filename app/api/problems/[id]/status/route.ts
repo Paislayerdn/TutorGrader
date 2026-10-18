@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireApiAdmin, route } from "@/lib/http";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { isUuid } from "@/lib/isUuid";
 

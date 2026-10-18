@@ -5,7 +5,7 @@ import {
 	type JudgeTestCase,
 	type JudgeVersionRow,
 } from "@/data/supabase/repositories/JudgeRepo";
-import { ExecutorRegistry } from "@/domain/executor/ExecutorRegistry";
+import { ExecutorRegistry } from "@/services/ExecutorRegistry";
 import { OutputComparator } from "@/domain/executor/OutputComparator";
 import type { ExecutionErrorKind } from "@/domain/executor/ExecutionError";
 import type { JudgeVerdict } from "@/domain/executor/JudgeVerdict";

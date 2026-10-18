@@ -11,6 +11,38 @@ export class HttpError extends Error {
 	}
 }
 
+export async function readJsonObject(req: Request): Promise<Record<string, unknown>> {
+	let value: unknown;
+	try {
+		value = await req.json();
+	} catch {
+		throw new HttpError(400, "Invalid JSON body.");
+	}
+	if (!isRecord(value)) {
+		throw new HttpError(400, "Invalid JSON body.");
+	}
+	return value as Record<string, unknown>;
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function fileResponse(file: Blob, filename: string): Response {
+	const safeFilename = encodeURIComponent(filename).replace(/['()*]/g, char =>
+		`%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+	);
+	return new Response(file, {
+		headers: {
+			"Content-Type": "application/octet-stream",
+			"X-Content-Type-Options": "nosniff",
+			"Cache-Control": "private, no-store",
+			"Content-Disposition": `attachment; filename*=UTF-8''${safeFilename}`,
+			"Content-Length": String(file.size),
+		},
+	});
+}
+
 export async function requireApiUser(): Promise<User> {
 	const visitor = await getCurrentVisitor();
 

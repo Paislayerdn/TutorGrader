@@ -1,12 +1,13 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { SubmissionRepo } from "@/data/supabase/repositories/SubmissionRepo";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { HttpError, requireApiUser, route } from "@/lib/http";
+import { isUuid } from "@/lib/isUuid";
 
 const BUCKET = "problem-files";
 const MAX_SOURCE_SIZE = 1024 * 1024;
@@ -29,6 +30,7 @@ export const POST = route(async req => {
 	) {
 		throw new HttpError(400, "Invalid submission data.");
 	}
+	if (!isUuid(problemId)) throw new HttpError(400, "Invalid submission data.");
 
 	if (file.size === 0) {
 		throw new HttpError(400, "Source file is empty.");

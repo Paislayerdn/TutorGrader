@@ -5,6 +5,20 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
     ...nextVitals,
     ...nextTs,
+    {
+        files: ["domain/**/*.{ts,tsx}"],
+        rules: {
+            "no-restricted-imports": ["error", {
+                patterns: [
+                    "next/*",
+                    "@supabase/*",
+                    "@/data/*",
+                    "@/services/*",
+                    "node:*",
+                ],
+            }],
+        },
+    },
     // Override default ignores of eslint-config-next.
     globalIgnores([
         // Default ignores of eslint-config-next:

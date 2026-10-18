@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { isAllowedAttachment } from "@/lib/attachment-validation";
+import { isAllowedAttachment } from "@/domain/stuff/AttachmentRules";
 
 import styles from "./CreateProblemForm.module.css";
 

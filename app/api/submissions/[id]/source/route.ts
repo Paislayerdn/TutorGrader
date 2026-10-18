@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { requireApiUser, route } from "@/lib/http";
+import { fileResponse, HttpError, requireApiUser, route } from "@/lib/http";
+import { isUuid } from "@/lib/isUuid";
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
 
@@ -15,6 +16,7 @@ type Props = {
 export const GET = route<Props>(async (_request, { params }) => {
 	const user = await requireApiUser();
 	const { id } = await params;
+	if (!isUuid(id)) throw new HttpError(400, "Invalid submission id.");
 
 	const { data: submission, error } = await supabaseAdmin
 		.from("submission")
@@ -69,14 +71,5 @@ export const GET = route<Props>(async (_request, { params }) => {
 		stuff.storagePath.replace(/\\/g, "/").split("/").pop() ||
 		"source";
 
-	return new Response(await file.arrayBuffer(), {
-		headers: {
-			"Content-Type": "application/octet-stream",
-			"Content-Disposition":
-				`attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
-			"Content-Length": String(file.size),
-			"Cache-Control": "private, no-store",
-			"X-Content-Type-Options": "nosniff",
-		},
-	});
+	return fileResponse(file, filename);
 });

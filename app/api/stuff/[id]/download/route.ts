@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { requireApiUser, route } from "@/lib/http";
+import { fileResponse, HttpError, requireApiUser, route } from "@/lib/http";
+import { isUuid } from "@/lib/isUuid";
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,7 @@ export const GET = route<Props>(async (_request, { params }) => {
 	const user = await requireApiUser();
 
 	const { id } = await params;
+	if (!isUuid(id)) throw new HttpError(400, "Invalid attachment id.");
 
 	const stuff = await stuffRepo.findById(id);
 
@@ -100,14 +102,5 @@ export const GET = route<Props>(async (_request, { params }) => {
 	const filename =
 		stuff.storagePath.replace(/\\/g, "/").split("/").pop() || "attachment";
 
-	return new Response(await file.arrayBuffer(), {
-		headers: {
-			"Content-Type": "application/octet-stream",
-			"Content-Disposition":
-				`attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
-			"Content-Length": String(file.size),
-			"Cache-Control": "private, no-store",
-			"X-Content-Type-Options": "nosniff",
-		},
-	});
+	return fileResponse(file, filename);
 });

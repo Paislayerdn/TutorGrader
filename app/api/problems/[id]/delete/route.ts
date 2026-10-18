@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiAdmin, route } from "@/lib/http";
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
 
 type Props = {

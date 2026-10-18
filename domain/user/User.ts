@@ -21,6 +21,9 @@ export class User extends Visitor {
 	public override canDownloadProblem(problem: Problem): boolean {
 		return this.canViewProblem(problem) && problem.status === ProblemStatus.ACTIVE;
 	}
+	public override canReadSourceOf(ownerUserId: string): boolean {
+		return ownerUserId === this.id;
+	}
 	public get username(): string { return this.data.username; }
 	public get registeredName(): string { return this.data.registeredName; }
 	public get status(): UserStatus { return this.data.status; }

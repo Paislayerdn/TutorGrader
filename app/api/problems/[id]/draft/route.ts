@@ -4,18 +4,15 @@ import { NextResponse } from "next/server";
 
 import { requireApiAdmin, route } from "@/lib/http";
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { StuffRepo, type CreateStuffData, } from "@/data/supabase/repositories/StuffRepo";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 import { ProblemVersionStatus } from "@/domain/problem/version/ProblemVersionStatus";
-import { isAllowedAttachment } from "@/lib/attachment-validation";
+import { BUCKET, MAX_FILES, MAX_TOTAL_SIZE, isAllowedAttachment, sanitizeFilename } from "@/domain/stuff/AttachmentRules";
 import { isUuid } from "@/lib/isUuid";
+import { isRecord } from "@/lib/http";
 
 export const runtime = "nodejs";
-
-const BUCKET = "problem-files";
-const MAX_FILES = 10;
-const MAX_TOTAL_SIZE = 4 * 1024 * 1024;
 
 const problemRepo = new ProblemRepo();
 const stuffRepo = new StuffRepo();
@@ -24,21 +21,6 @@ type Props = {
 	params: Promise<{ id: string }>;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function sanitizeFilename(filename: string): string {
-	const basename = filename.replace(/\\/g, "/").split("/").pop() ?? "";
-	const cleaned = basename
-		.replace(/[\u0000-\u001f\u007f]/g, "")
-		.replace(/[<>:"|?*]/g, "_")
-		.trim();
-
-	return cleaned && cleaned !== "." && cleaned !== ".."
-		? cleaned
-		: "attachment";
-}
 
 export const PUT = route<Props>(async (request: Request, { params }) => {
 	const user = await requireApiAdmin();
@@ -197,7 +179,6 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 
 	for (const file of files) {
 		const filename = sanitizeFilename(file.name);
-		const extension = extname(filename).toLowerCase();
 		if (!isAllowedAttachment(filename, file.type)) {
 			return NextResponse.json(
 				{ error: `Unsupported file type: ${filename}` },

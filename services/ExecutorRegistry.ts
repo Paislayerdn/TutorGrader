@@ -1,8 +1,8 @@
 import { ExecutorRepo } from "@/data/supabase/repositories/ExecutorRepo";
 
-import type { Executor } from "./Executor";
-import type { ExecutorSelection } from "./ExecutorSelection";
-import { WandboxExecutor } from "./WandboxExecutor";
+import type { Executor } from "@/domain/executor/Executor";
+import type { ExecutorSelection } from "@/domain/executor/ExecutorSelection";
+import { WandboxExecutor } from "@/domain/executor/WandboxExecutor";
 
 export class ExecutorRegistry {
 	private readonly adapters = new Map<string, Executor>([

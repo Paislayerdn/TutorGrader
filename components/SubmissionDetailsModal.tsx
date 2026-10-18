@@ -127,7 +127,7 @@ export default function SubmissionDetailsModal({
 
 						{submission.isDemoSource && (
 							<p className={styles.demoNotice}>
-								Demo fixture: the source file's metadata exists,
+								Demo fixture: the source file&apos;s metadata exists,
 								but its contents have not been uploaded.
 							</p>
 						)}

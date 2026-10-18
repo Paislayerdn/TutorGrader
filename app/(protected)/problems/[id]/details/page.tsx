@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import styles from "./page.module.css";
 
 import { getCurrentVisitor } from "@/lib/auth";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { User } from "@/domain/user/User";
 import { Admin } from "@/domain/user/Admin";

@@ -3,37 +3,17 @@ import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
-import { requireApiAdmin, route } from "@/lib/http";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { isRecord, requireApiAdmin, route } from "@/lib/http";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { StuffRepo, type CreateStuffData } from "@/data/supabase/repositories/StuffRepo";
 import { TestCase } from "@/domain/problem/TestCase";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
-import { isAllowedAttachment } from "@/lib/attachment-validation";
+import { BUCKET, MAX_FILES, MAX_TOTAL_SIZE, isAllowedAttachment, sanitizeFilename } from "@/domain/stuff/AttachmentRules";
 
 export const runtime = "nodejs";
 
-const BUCKET = "problem-files";
-const MAX_FILES = 10;
-const MAX_TOTAL_SIZE = 4 * 1024 * 1024;
-
 const problemRepo = new ProblemRepo();
 const stuffRepo = new StuffRepo();
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function sanitizeFilename(filename: string): string {
-	const basename = filename.replace(/\\/g, "/").split("/").pop() ?? "";
-	const cleaned = basename
-		.replace(/[\u0000-\u001f\u007f]/g, "")
-		.replace(/[<>:"|?*]/g, "_")
-		.trim();
-
-	return cleaned && cleaned !== "." && cleaned !== ".."
-		? cleaned
-		: "attachment";
-}
 
 export const POST = route(async (request: Request) => {
 	const currentUser = await requireApiAdmin();
@@ -154,7 +134,6 @@ export const POST = route(async (request: Request) => {
 
 	for (const file of files) {
 		const filename = sanitizeFilename(file.name);
-		const extension = extname(filename).toLowerCase();
 		if (!isAllowedAttachment(filename, file.type)) {
 			return NextResponse.json(
 				{ error: `Unsupported file type: ${filename}` },

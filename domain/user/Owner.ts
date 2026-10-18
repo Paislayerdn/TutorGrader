@@ -5,7 +5,9 @@ export class Owner extends Admin {
 	public override canCreateAccountWithRole(role: Role): boolean {
 		return role === "USER" || role === "ADMIN";
 	}
+	public override get creatableRoles(): Role[] { return ["USER", "ADMIN"]; }
 
 	public override get canRunGarbageCollection(): boolean { return true; }
+	public override get canViewQueryHistory(): boolean { return true; }
 	public override get role(): Role { return "OWNER"; }
 }

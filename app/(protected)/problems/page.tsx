@@ -3,7 +3,7 @@ import Link from "next/link";
 import styles from "./page.module.css";
 
 import { getCurrentVisitor } from "@/lib/auth";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { Admin } from "@/domain/user/Admin";
 import { Owner } from "@/domain/user/Owner";
 import GCButton from "@/components/GCButton";

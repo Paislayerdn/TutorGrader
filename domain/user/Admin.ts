@@ -8,6 +8,8 @@ export class Admin extends User {
 	public override canCreateAccountWithRole(role: Role): boolean {
 		return role === "USER";
 	}
+	public override get creatableRoles(): Role[] { return ["USER"]; }
+	public override canReadSourceOf(): boolean { return true; }
 
 	public override get role(): Role { return "ADMIN"; }
 }

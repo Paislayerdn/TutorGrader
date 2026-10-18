@@ -4,7 +4,7 @@ import { getCurrentVisitor } from "@/lib/auth";
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { Admin } from "@/domain/user/Admin";
 import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
-import { ProblemRepo } from "@/domain/problem/ProblemRepo";
+import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
 
 import CreateProblemForm from "../../create/CreateProblemForm";

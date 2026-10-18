@@ -2,23 +2,10 @@
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 
 import { ProblemVersionRepo } from "@/data/supabase/repositories/ProblemVersionRepo";
-import { Problem } from "./Problem";
-import { ProblemStatus } from "./ProblemStatus";
-import { OutputComparison } from "./version/OutputComparison";
-import { TestCase } from "./TestCase";
-
-export type CreateProblemDraftData = {
-	createdById: string;
-	name: string;
-	description: string | null;
-	difficulty: string | null;
-	timeLimitMs: number;
-	memoryLimitKb: number;
-	outputComparison: OutputComparison;
-	languageIds: number[];
-	testCases: TestCase[];
-	stuffIds?: string[];
-};
+import { Problem } from "@/domain/problem/Problem";
+import { ProblemVersion } from "@/domain/problem/version/ProblemVersion";
+import { ProblemStatus } from "@/domain/problem/ProblemStatus";
+import type { CreateProblemDraftData, ProblemListItem } from "@/domain/problem/ProblemRepoTypes";
 
 type DeletedDraftStuff = {
 	bucket: string;
@@ -33,17 +20,6 @@ type ProblemRow = {
 	created_at: string;
 	updated_at: string;
 	created_by: string;
-};
-
-export type ProblemListItem = {
-	id: string;
-	problemNumber: number;
-	status: ProblemStatus;
-	versionNumber: number;
-	draftVersionNumber: number | null;
-	name: string;
-	difficulty: string | null;
-	isDraft: boolean;
 };
 
 type ProblemListViewRow = {
@@ -123,7 +99,7 @@ export class ProblemRepo {
 
 	async openDraftForEditing(
 		problemId: string,
-	): Promise<import("./version/ProblemVersion").ProblemVersion> {
+	): Promise<ProblemVersion> {
 		const { data, error } = await supabaseAdmin.rpc(
 			"create_problem_edit_draft",
 			{
@@ -360,19 +336,14 @@ export class ProblemRepo {
 	}
 
 	private async createProblem(row: ProblemRow): Promise<Problem> {
-		const currentVersion = row.current_version_number === null
-			? null
-			: await this.problemVersionRepo.findProblemVersion(
-				row.id,
-				row.current_version_number,
-			);
-
-		const draft = row.current_draft_number === null
-			? null
-			: await this.problemVersionRepo.findProblemVersion(
-				row.id,
-				row.current_draft_number,
-			);
+		const [currentVersion, draft] = await Promise.all([
+			row.current_version_number === null
+				? Promise.resolve(null)
+				: this.problemVersionRepo.findProblemVersion(row.id, row.current_version_number),
+			row.current_draft_number === null
+				? Promise.resolve(null)
+				: this.problemVersionRepo.findProblemVersion(row.id, row.current_draft_number),
+		]);
 
 		return new Problem(
 			row.id,

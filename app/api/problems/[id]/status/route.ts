@@ -22,7 +22,7 @@ export const PATCH = route<Props>(async (request: Request, { params }) => {
 	}
 
 	const problemRepo = new ProblemRepo();
-	const problem = await problemRepo.findById(id);
+	const problem = await problemRepo.findStatusInfo(id);
 
 	if (!problem) {
 		return NextResponse.json(

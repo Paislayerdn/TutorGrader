@@ -1,6 +1,8 @@
 "use client";
 
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
+import Modal from "@/components/Modal";
+import { formatSubmissionDate, formatTestVerdict, getSubmissionLabel } from "./submission-formatters";
 
 import styles from "./SubmissionDetailsModal.module.css";
 
@@ -9,53 +11,17 @@ type Props = {
 	onClose: () => void;
 };
 
-function formatDate(value: string): string {
-	return `${new Date(value)
-		.toISOString()
-		.slice(0, 16)
-		.replace("T", " ")} UTC`;
-}
-
-function formatStatus(status: string): string {
-	if (status === "PASS") return "Correct Output";
-	if (status === "WRONG_ANSWER") return "Incorrect Output";
-
-	return status
-		.toLowerCase()
-		.split("_")
-		.map(word => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(" ");
-}
-
-function getSubmissionLabel(
-	submission: SubmissionHistoryItem,
-): string {
-	return submission.testResults.length > 0 &&
-		submission.testResults.every(result => result.status === "PASS")
-		? "Complete"
-		: "Incomplete";
-}
-
 export default function SubmissionDetailsModal({
 	submission,
 	onClose,
 }: Props) {
 	return (
-		<div
-			className={styles.overlay}
-			role="presentation"
-			onMouseDown={event => {
-				if (event.target === event.currentTarget) {
-					onClose();
-				}
-			}}
+		<Modal
+			onClose={onClose}
+			overlayClassName={styles.overlay}
+			modalClassName={styles.modal}
+			labelledBy="submission-title"
 		>
-			<section
-				className={styles.modal}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="submission-title"
-			>
 				<header className={styles.modalHeader}>
 					<div>
 						<p className={styles.eyebrow}>SUBMISSION DETAILS</p>
@@ -116,7 +82,7 @@ export default function SubmissionDetailsModal({
 
 							<div>
 								<dt>Submitted</dt>
-								<dd>{formatDate(submission.submittedAt)}</dd>
+								<dd>{formatSubmissionDate(submission.submittedAt)}</dd>
 							</div>
 
 							<div>
@@ -188,7 +154,7 @@ export default function SubmissionDetailsModal({
 											className={styles.submissionStatus}
 											data-status={result.status}
 										>
-											{formatStatus(result.status)}
+											{formatTestVerdict(result.status)}
 										</span>
 
 										<span>
@@ -208,7 +174,6 @@ export default function SubmissionDetailsModal({
 						)}
 					</section>
 				</div>
-			</section>
-		</div>
+		</Modal>
 	);
 }

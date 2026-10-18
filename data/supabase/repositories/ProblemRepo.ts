@@ -5,7 +5,7 @@ import { ProblemVersionRepo } from "@/data/supabase/repositories/ProblemVersionR
 import { Problem } from "@/domain/problem/Problem";
 import { ProblemVersion } from "@/domain/problem/version/ProblemVersion";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
-import type { CreateProblemDraftData, ProblemListItem } from "@/domain/problem/ProblemRepoTypes";
+import type { CreateProblemDraftData, ProblemListItem, ProblemStatusInfo } from "@/domain/problem/ProblemRepoTypes";
 
 type DeletedDraftStuff = {
 	bucket: string;
@@ -54,6 +54,28 @@ export class ProblemRepo {
 
 	private readonly problemVersionRepo = new ProblemVersionRepo();
 
+	async saveDraft(data: {
+		problemId: string; versionNumber: number; name: string; description: string | null;
+		difficulty: string | null; timeLimitMs: number; memoryLimitKb: number;
+		outputComparison: string; languageIds: number[];
+		testCases: { input: string; expectedOutput: string }[]; stuffIds: string[];
+	}): Promise<DeletedDraftStuff[]> {
+		const { data: removedFiles, error } = await supabaseAdmin.rpc("save_problem_draft", {
+			p_problem_id: data.problemId, p_version_number: data.versionNumber,
+			p_name: data.name, p_description: data.description, p_difficulty: data.difficulty,
+			p_time_limit_ms: data.timeLimitMs, p_memory_limit_kb: data.memoryLimitKb,
+			p_output_comparison: data.outputComparison, p_language_ids: data.languageIds,
+			// save_problem_draft uses expectedOutput; create_problem_draft uses expected_output.
+			p_test_cases: data.testCases.map(testCase => ({ input: testCase.input, expectedOutput: testCase.expectedOutput })),
+			p_stuff_ids: data.stuffIds,
+		});
+		if (error) {
+			console.error("Problem draft save RPC failed:", error);
+			throw new Error("Unable to save the problem draft.");
+		}
+		return (removedFiles ?? []) as DeletedDraftStuff[];
+	}
+
 	async createDraft(
 		data: CreateProblemDraftData,
 	): Promise<{ problemId: string; versionNumber: number }> {
@@ -68,7 +90,8 @@ export class ProblemRepo {
 				p_memory_limit_kb: data.memoryLimitKb,
 				p_output_comparison: data.outputComparison,
 				p_language_ids: data.languageIds,
-				p_test_cases: data.testCases.map(testCase => ({
+			// create_problem_draft uses snake_case; save_problem_draft uses camelCase.
+			p_test_cases: data.testCases.map(testCase => ({
 					input: testCase.input,
 					expected_output: testCase.expectedOutput,
 				})),
@@ -100,6 +123,7 @@ export class ProblemRepo {
 	async openDraftForEditing(
 		problemId: string,
 	): Promise<ProblemVersion> {
+		// This RPC intentionally remains on GET to preserve the existing editor flow.
 		const { data, error } = await supabaseAdmin.rpc(
 			"create_problem_edit_draft",
 			{
@@ -132,6 +156,51 @@ export class ProblemRepo {
 		}
 
 		return draft;
+	}
+
+	async findDraftTestCases(problemId: string, versionNumber: number): Promise<{
+		input: string;
+		expectedOutput: string;
+	}[]> {
+		const { data, error } = await supabaseAdmin
+			.from("problem_version_test_case")
+			.select(`test_case ( input, expected_output )`)
+			.eq("problem_id", problemId)
+			.eq("version_number", versionNumber)
+			.order("order", { ascending: true });
+		if (error) {
+			console.error("Draft test case lookup error:", error);
+			throw new Error("Unable to load draft test cases.");
+		}
+		return ((data ?? []) as Array<{
+			test_case: { input: string; expected_output: string } | { input: string; expected_output: string }[] | null;
+		}>).flatMap(row => {
+			if (!row.test_case) return [];
+			const cases = Array.isArray(row.test_case) ? row.test_case : [row.test_case];
+			return cases.map(testCase => ({
+				input: testCase.input,
+				expectedOutput: testCase.expected_output,
+			}));
+		});
+	}
+
+	async publishDraft(problemId: string, publishedById: string): Promise<{
+		problemId: string;
+		versionNumber: number;
+	} | null> {
+		const { data, error } = await supabaseAdmin.rpc("publish_problem_draft", {
+			p_problem_id: problemId,
+			p_published_by: publishedById,
+		});
+		if (error) {
+			console.error("Problem publishing error:", error);
+			throw new Error("Unable to publish the problem.");
+		}
+		const published = data?.[0];
+		if (!published || published.problem_id !== problemId || typeof published.version_number !== "number") {
+			return null;
+		}
+		return { problemId, versionNumber: published.version_number };
 	}
 
 	async deleteDraft(id: string): Promise<DeletedDraftStuff[]> {
@@ -317,6 +386,25 @@ export class ProblemRepo {
 		if (!data) return null;
 
 		return this.createProblem(data as ProblemRow);
+	}
+
+	async findStatusInfo(id: string): Promise<ProblemStatusInfo | null> {
+		const { data, error } = await supabaseAdmin
+			.from("problem")
+			.select("id, status, current_version_number, current_draft_number")
+			.eq("id", id)
+			.maybeSingle();
+		if (error) {
+			console.error("Problem status lookup error:", error);
+			throw new Error("Unable to load problem status.");
+		}
+		if (!data) return null;
+		return {
+			id: data.id,
+			status: data.status as ProblemStatus,
+			currentVersionNumber: data.current_version_number,
+			draftVersionNumber: data.current_draft_number,
+		};
 	}
 
 	async findAll(): Promise<Problem[]> {

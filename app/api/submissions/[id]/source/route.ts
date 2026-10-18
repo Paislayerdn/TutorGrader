@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 
 import { fileResponse, HttpError, requireApiUser, route } from "@/lib/http";
 import { isUuid } from "@/lib/isUuid";
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { SubmissionRepo } from "@/data/supabase/repositories/SubmissionRepo";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
+import { AttachmentStorage } from "@/data/storage/AttachmentStorage";
 
 export const runtime = "nodejs";
 
 const stuffRepo = new StuffRepo();
+const submissionRepo = new SubmissionRepo();
+const attachmentStorage = new AttachmentStorage();
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -18,15 +21,7 @@ export const GET = route<Props>(async (_request, { params }) => {
 	const { id } = await params;
 	if (!isUuid(id)) throw new HttpError(400, "Invalid submission id.");
 
-	const { data: submission, error } = await supabaseAdmin
-		.from("submission")
-		.select("user_id, source_stuff_id")
-		.eq("id", id)
-		.maybeSingle();
-
-	if (error) {
-		throw new Error("Unable to look up the submission.");
-	}
+	const submission = await submissionRepo.findSourceAccess(id);
 
 	if (!submission) {
 		return NextResponse.json(
@@ -35,7 +30,7 @@ export const GET = route<Props>(async (_request, { params }) => {
 		);
 	}
 
-	if (submission.user_id !== user.id && !user.canManageProblems) {
+	if (!user.canReadSourceOf(submission.user_id)) {
 		return NextResponse.json(
 			{ error: "You do not have permission to download this source." },
 			{ status: 403 },
@@ -53,23 +48,16 @@ export const GET = route<Props>(async (_request, { params }) => {
 		);
 	}
 
-	const { data: file, error: downloadError } = await supabaseAdmin.storage
-		.from(stuff.bucket)
-		.download(stuff.storagePath);
+	const file = await attachmentStorage.download(stuff.bucket, stuff.storagePath);
 
-	if (downloadError || !file) {
-		console.error("Submission source download failed:", downloadError);
-
+	if (!file) {
 		return NextResponse.json(
 			{ error: "Unable to download the source file." },
 			{ status: 500 },
 		);
 	}
 
-	const filename =
-		stuff.originalFilename ||
-		stuff.storagePath.replace(/\\/g, "/").split("/").pop() ||
-		"source";
+	const filename = stuff.displayName || "source";
 
 	return fileResponse(file, filename);
 });

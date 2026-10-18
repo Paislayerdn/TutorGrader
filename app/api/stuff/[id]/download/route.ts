@@ -2,24 +2,18 @@ import { NextResponse } from "next/server";
 
 import { fileResponse, HttpError, requireApiUser, route } from "@/lib/http";
 import { isUuid } from "@/lib/isUuid";
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
-import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
+import { AttachmentStorage } from "@/data/storage/AttachmentStorage";
 
 export const runtime = "nodejs";
 
 const stuffRepo = new StuffRepo();
-const problemRepo = new ProblemRepo();
+const attachmentStorage = new AttachmentStorage();
 
 type Props = {
 	params: Promise<{
 		id: string;
 	}>;
-};
-
-type ProblemVersionLink = {
-	problem_id: string;
-	version_number: number;
 };
 
 export const GET = route<Props>(async (_request, { params }) => {
@@ -37,14 +31,10 @@ export const GET = route<Props>(async (_request, { params }) => {
 		);
 	}
 
-	const { data: links, error: linksError } = await supabaseAdmin
-		.from("problem_version_stuff")
-		.select("problem_id, version_number")
-		.eq("stuff_id", stuff.id);
-
-	if (linksError) {
-		console.error("Attachment association lookup error:", linksError);
-
+	let links;
+	try {
+		links = await stuffRepo.findProblemAccess(stuff.id);
+	} catch {
 		return NextResponse.json(
 			{ error: "Unable to verify attachment access." },
 			{ status: 500 },
@@ -60,18 +50,14 @@ export const GET = route<Props>(async (_request, { params }) => {
 
 	let hasAccess = false;
 
-	for (const link of links as ProblemVersionLink[]) {
-		const problem = await problemRepo.findById(link.problem_id);
-
-		if (!problem) continue;
-
+	for (const link of links) {
 		const isPublishedVersion =
-			problem.currentVersionNumber === link.version_number &&
-			user.canDownloadProblem(problem);
+			link.problem.current_version_number === link.version_number &&
+			(link.problem.status === "ACTIVE" || user.canManageProblems);
 
 		const isCurrentDraft =
 			user.canManageProblems &&
-			problem.draftVersionNumber === link.version_number;
+			link.problem.current_draft_number === link.version_number;
 
 		if (!isPublishedVersion && !isCurrentDraft) continue;
 
@@ -86,21 +72,16 @@ export const GET = route<Props>(async (_request, { params }) => {
 		);
 	}
 
-	const { data: file, error: downloadError } = await supabaseAdmin.storage
-		.from(stuff.bucket)
-		.download(stuff.storagePath);
+	const file = await attachmentStorage.download(stuff.bucket, stuff.storagePath);
 
-	if (downloadError || !file) {
-		console.error("Attachment download error:", downloadError);
-
+	if (!file) {
 		return NextResponse.json(
 			{ error: "Unable to download attachment." },
 			{ status: 500 },
 		);
 	}
 
-	const filename =
-		stuff.storagePath.replace(/\\/g, "/").split("/").pop() || "attachment";
+	const filename = stuff.displayName;
 
 	return fileResponse(file, filename);
 });

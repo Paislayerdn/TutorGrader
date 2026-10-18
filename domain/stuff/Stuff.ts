@@ -8,6 +8,16 @@ export type StuffData = {
 	createdAt: Date;
 };
 
+export function getStuffDisplayName(
+	originalFilename: string | null | undefined,
+	storagePath: string,
+	fallback: string,
+): string {
+	return originalFilename
+		|| storagePath.replace(/\\/g, "/").split("/").pop()
+		|| fallback;
+}
+
 export class Stuff {
 	private readonly _id: string;
 	private readonly _fileExtension: string;
@@ -36,4 +46,7 @@ export class Stuff {
 		return this._originalFilename;
 	}
 	public get createdAt(): Date { return new Date(this._createdAt); }
+	public get displayName(): string {
+		return getStuffDisplayName(this.originalFilename, this.storagePath, "attachment");
+	}
 }

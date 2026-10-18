@@ -24,4 +24,14 @@ export class ProblemVersion {
 		public languages: Language[],
 		public stuffs: Stuff[],
 	) {}
+
+	public languageForExtension(extension: string):
+		| { kind: "found"; language: Language }
+		| { kind: "none" }
+		| { kind: "ambiguous" } {
+		const matches = this.languages.filter(language => language.supportsExtension(extension));
+		if (matches.length === 0) return { kind: "none" };
+		if (matches.length > 1) return { kind: "ambiguous" };
+		return { kind: "found", language: matches[0] };
+	}
 }

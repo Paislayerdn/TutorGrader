@@ -1,9 +1,6 @@
 import Link from "next/link";
 
 import { Visitor } from "@/domain/user/Visitor";
-import { User } from "@/domain/user/User";
-import { Admin } from "@/domain/user/Admin";
-import { Owner } from "@/domain/user/Owner";
 
 import styles from "./Navbar.module.css";
 import ThemeToggle from "./ThemeToggle";
@@ -13,9 +10,9 @@ type NavbarProps = {
 };
 
 export default function Navbar({ user }: NavbarProps) {
-	const isUser = user instanceof User;
-	const canCreateAccount = user instanceof Admin;
-	const isOwner = user instanceof Owner;
+	const isUser = user.isAuthenticated;
+	const canCreateAccount = user.canManageProblems;
+	const isOwner = user.canViewQueryHistory;
 
 	return (
 		<nav className={styles.navbar}>

@@ -1,39 +1,24 @@
 import { NextResponse } from "next/server";
-import argon2 from "argon2";
-
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
-import { requireApiAdmin, route } from "@/lib/http";
+import { UserRepo, UserRepoError } from "@/data/supabase/repositories/UserRepo";
+import { readJsonObject, requireApiAdmin, route } from "@/lib/http";
+import { Username } from "@/domain/user/Username";
+import { Password } from "@/domain/user/Password";
+import { PasswordHasher } from "@/data/security/PasswordHasher";
 
 export const runtime = "nodejs";
+const passwordHasher = new PasswordHasher();
+const userRepo = new UserRepo();
 
 export const POST = route(async (request: Request) => {
 	const currentUser = await requireApiAdmin();
 
-	let body: Record<string, unknown>;
+	const body = await readJsonObject(
+		request,
+		"Invalid request body.",
+		"Invalid request body.",
+	);
 
-	try {
-		const parsed: unknown = await request.json();
-
-		if (
-			typeof parsed !== "object" ||
-			parsed === null ||
-			Array.isArray(parsed)
-		) {
-			throw new Error("Invalid request body.");
-		}
-
-		body = parsed as Record<string, unknown>;
-	} catch {
-		return NextResponse.json(
-			{ error: "Invalid request body." },
-			{ status: 400 },
-		);
-	}
-
-	const username =
-		typeof body.username === "string"
-			? body.username.trim()
-			: "";
+	const username = Username.parse(body.username);
 
 	const registeredName =
 		typeof body.registeredName === "string"
@@ -47,9 +32,9 @@ export const POST = route(async (request: Request) => {
 
 	const requestedRole = body.role;
 	
-	if (!/^[A-Za-z0-9_]+$/.test(username)) {
+	if (!username) {
 		return NextResponse.json(
-			{ error: "Username may contain only English letters, numbers, and underscores." },
+			{ error: "Username must be 3–30 characters and use only English letters, numbers, and underscores." },
 			{ status: 400 },
 		);
 	}
@@ -75,37 +60,34 @@ export const POST = route(async (request: Request) => {
 		);
 	}
 
-	const passwordHash = await argon2.hash(password);
+	const parsedPassword = Password.parseNew(password);
+	if (!parsedPassword) {
+		return NextResponse.json(
+			{ error: "Password must be between 8 and 128 characters." },
+			{ status: 400 },
+		);
+	}
 
-	const { data, error } = await supabaseAdmin
-		.from("app_user")
-		.insert({
+	const passwordHash = await passwordHasher.hash(parsedPassword.value);
+
+	try {
+		const data = await userRepo.createAccount({
 			id: crypto.randomUUID(),
-			username,
-			registered_name: registeredName,
-			password_hash: passwordHash,
+			username: username.value,
+			registeredName,
+			passwordHash,
 			role: requestedRole,
-			status: "ACTIVE",
-			created_by: currentUser.id,
-		})
-		.select("id, username, registered_name, role, status")
-		.single();
-
-	if (error) {
-		console.error("Account creation error:", error);
-
-		if (error.code === "23505") {
+			createdById: currentUser.id,
+		});
+		return NextResponse.json({ user: data }, { status: 201 });
+	} catch (error) {
+		if (error instanceof UserRepoError && error.code === "23505") {
 			return NextResponse.json(
 				{ error: "That username is already in use." },
 				{ status: 409 }
 			);
 		}
 
-		return NextResponse.json(
-			{ error: "Unable to create account." },
-			{ status: 500 }
-		);
+		return NextResponse.json({ error: "Unable to create account." }, { status: 500 });
 	}
-
-	return NextResponse.json({ user: data }, { status: 201 });
 });

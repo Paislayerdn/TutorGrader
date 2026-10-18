@@ -1,0 +1,1 @@
+export const DIAGNOSTIC_MAX_LENGTH = 12_000;

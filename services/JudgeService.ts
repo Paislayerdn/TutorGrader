@@ -7,8 +7,8 @@ import {
 } from "@/data/supabase/repositories/JudgeRepo";
 import { ExecutorRegistry } from "@/services/ExecutorRegistry";
 import { OutputComparator } from "@/domain/executor/OutputComparator";
-import type { ExecutionErrorKind } from "@/domain/executor/ExecutionError";
 import type { JudgeVerdict } from "@/domain/executor/JudgeVerdict";
+import { DIAGNOSTIC_MAX_LENGTH } from "@/domain/executor/diagnostics";
 
 const TERMINAL_STATUSES = new Set([
 	"COMPLETED",
@@ -17,7 +17,6 @@ const TERMINAL_STATUSES = new Set([
 	"PROVIDER_ERROR",
 ]);
 
-const MAX_DIAGNOSTIC_LENGTH = 12_000;
 
 export class JudgeService {
 	private readonly judgeRepo = new JudgeRepo();
@@ -239,7 +238,7 @@ export class JudgeService {
 				});
 
 				if (!result.success) {
-					verdict = this.mapExecutionError(result.error.kind);
+					verdict = result.error.kind;
 					diagnostic = this.limitDiagnostic(
 						result.error.diagnostic ?? result.error.message,
 					);
@@ -303,21 +302,6 @@ export class JudgeService {
 		);
 	}
 
-	private mapExecutionError(kind: ExecutionErrorKind): JudgeVerdict {
-		switch (kind) {
-			case "COMPILE_ERROR":
-				return "COMPILE_ERROR";
-			case "RUNTIME_ERROR":
-				return "RUNTIME_ERROR";
-			case "TIME_LIMIT":
-				return "TIME_LIMIT";
-			case "MEMORY_LIMIT":
-				return "MEMORY_LIMIT";
-			case "PROVIDER_ERROR":
-				return "PROVIDER_ERROR";
-		}
-	}
-
 	private async finishSubmission(
 		submissionId: string,
 		status: string,
@@ -348,7 +332,7 @@ export class JudgeService {
 	}
 
 	private limitDiagnostic(value: string): string {
-		return value.slice(0, MAX_DIAGNOSTIC_LENGTH);
+		return value.slice(0, DIAGNOSTIC_MAX_LENGTH);
 	}
 }
 

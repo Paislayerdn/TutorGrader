@@ -21,13 +21,15 @@ export type SessionStatus =
 	| "expired"
 	| "invalid";
 
-export async function createSession(userId: string) {
+
+export async function createSession(userId: string, issuedAt?: number) {
+	const issuedAtSeconds = issuedAt ?? Math.floor(Date.now() / 1000);
 	const token = await new SignJWT({
 		userId,
 	})
 		.setProtectedHeader({ alg: "HS256" })
-		.setIssuedAt()
-		.setExpirationTime(`${SESSION_DURATION}s`)
+		.setIssuedAt(issuedAtSeconds)
+		.setExpirationTime(issuedAtSeconds + SESSION_DURATION)
 		.sign(getSecret());
 
 	const cookieStore = await cookies();

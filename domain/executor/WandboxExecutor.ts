@@ -3,6 +3,7 @@ import type { CompilationRequest } from "./CompilationRequest";
 import type { ExecutionRequest } from "./ExecutionRequest";
 import type { ExecutionError } from "./ExecutionError";
 import type { ExecutionResult } from "./ExecutionResult";
+import { DIAGNOSTIC_MAX_LENGTH } from "./diagnostics";
 
 type WandboxResponse = {
 	status?: string | number | null;
@@ -19,7 +20,9 @@ type WandboxResponse = {
 
 const API_URL = "https://wandbox.org/api/compile.json";
 const REQUEST_TIMEOUT_MS = 15_000;
-const MAX_DIAGNOSTIC_LENGTH = 12_000;
+type PostResult =
+	| { ok: true; value: WandboxResponse }
+	| { ok: false; value: ExecutionResult };
 
 function asText(value: unknown): string {
 	return typeof value === "string" ? value : "";
@@ -44,7 +47,7 @@ function diagnosticText(...parts: unknown[]): string | null {
 		.trim();
 
 	return text
-		? text.slice(0, MAX_DIAGNOSTIC_LENGTH)
+		? text.slice(0, DIAGNOSTIC_MAX_LENGTH)
 		: null;
 }
 
@@ -70,11 +73,11 @@ function createError(
 }
 
 export class WandboxExecutor implements Executor {
-	async compile(
-		request: CompilationRequest,
-	): Promise<ExecutionResult> {
+	private async post(
+		body: Record<string, unknown>,
+		requestFailureMessage: string,
+	): Promise<PostResult> {
 		let response: Response;
-
 		try {
 			response = await fetch(API_URL, {
 				method: "POST",
@@ -82,46 +85,45 @@ export class WandboxExecutor implements Executor {
 					"Content-Type": "application/json",
 					"Accept": "application/json",
 				},
-				body: JSON.stringify({
-					code: request.sourceCode,
-					compiler: request.compilerId,
-					dryrun: true,
-					save: false,
-				}),
+				body: JSON.stringify(body),
 				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 				cache: "no-store",
 			});
 		} catch (error) {
-			console.error("Wandbox compilation request failed:", error);
-
-			return createError(
-				"PROVIDER_ERROR",
-				"Wandbox could not be reached or did not respond in time.",
-				null,
-			);
+			console.error(requestFailureMessage, error);
+			return {
+				ok: false,
+				value: createError("PROVIDER_ERROR", "Wandbox could not be reached or did not respond in time.", null),
+			};
 		}
-
 		if (!response.ok) {
 			console.error("Wandbox returned HTTP status:", response.status);
-
-			return createError(
-				"PROVIDER_ERROR",
-				"Wandbox returned an unsuccessful HTTP response.",
-				null,
-			);
+			return {
+				ok: false,
+				value: createError("PROVIDER_ERROR", "Wandbox returned an unsuccessful HTTP response.", null),
+			};
 		}
-
-		let result: WandboxResponse;
-
 		try {
-			result = await response.json() as WandboxResponse;
+			return { ok: true, value: await response.json() as WandboxResponse };
 		} catch {
-			return createError(
-				"PROVIDER_ERROR",
-				"Wandbox returned an invalid response.",
-				null,
-			);
+			return {
+				ok: false,
+				value: createError("PROVIDER_ERROR", "Wandbox returned an invalid response.", null),
+			};
 		}
+	}
+
+	async compile(
+		request: CompilationRequest,
+	): Promise<ExecutionResult> {
+		const post = await this.post({
+			code: request.sourceCode,
+			compiler: request.compilerId,
+			dryrun: true,
+			save: false,
+		}, "Wandbox compilation request failed:");
+		if (!post.ok) return post.value;
+		const result = post.value;
 
 		const status = asNumber(result.status);
 
@@ -160,55 +162,14 @@ export class WandboxExecutor implements Executor {
 	async execute(
 		request: ExecutionRequest,
 	): Promise<ExecutionResult> {
-		let response: Response;
-
-		try {
-			response = await fetch(API_URL, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"Accept": "application/json",
-				},
-				body: JSON.stringify({
-					code: request.sourceCode,
-					compiler: request.compilerId,
-					stdin: request.stdin,
-					save: false,
-				}),
-				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-				cache: "no-store",
-			});
-		} catch (error) {
-			console.error("Wandbox request failed:", error);
-
-			return createError(
-				"PROVIDER_ERROR",
-				"Wandbox could not be reached or did not respond in time.",
-				null,
-			);
-		}
-
-		if (!response.ok) {
-			console.error("Wandbox returned HTTP status:", response.status);
-
-			return createError(
-				"PROVIDER_ERROR",
-				"Wandbox returned an unsuccessful HTTP response.",
-				null,
-			);
-		}
-
-		let result: WandboxResponse;
-
-		try {
-			result = await response.json() as WandboxResponse;
-		} catch {
-			return createError(
-				"PROVIDER_ERROR",
-				"Wandbox returned an invalid response.",
-				null,
-			);
-		}
+		const post = await this.post({
+			code: request.sourceCode,
+			compiler: request.compilerId,
+			stdin: request.stdin,
+			save: false,
+		}, "Wandbox request failed:");
+		if (!post.ok) return post.value;
+		const result = post.value;
 
 		const status = asNumber(result.status);
 		const executionTime = asNumber(result.time);
@@ -226,7 +187,6 @@ export class WandboxExecutor implements Executor {
 
 		const output = asText(result.program_output);
 		const stderr = asText(result.program_error);
-		const compilerError = asText(result.compiler_error);
 		const signal = asText(result.signal);
 
 		const diagnostic = diagnosticText(
@@ -241,17 +201,6 @@ export class WandboxExecutor implements Executor {
 			return createError(
 				"PROVIDER_ERROR",
 				"Wandbox did not return a valid execution status.",
-				diagnostic,
-				executionTimeMs,
-				memoryUsageKb,
-				output,
-			);
-		}
-
-		if (compilerError.trim() && status !== 0) {
-			return createError(
-				"COMPILE_ERROR",
-				"Compilation failed.",
 				diagnostic,
 				executionTimeMs,
 				memoryUsageKb,

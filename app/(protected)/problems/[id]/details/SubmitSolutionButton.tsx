@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { apiFetch } from "@/web/http/api-client";
+import { useApiAction } from "@/web/http/useApiAction";
+import Modal from "@/components/Modal";
 
 import styles from "./SubmitSolutionButton.module.css";
 
@@ -18,11 +21,13 @@ export default function SubmitSolutionButton({
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [file, setFile] = useState<File | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [validationError, setValidationError] = useState<string | null>(null);
+	const { run, isRunning: isSubmitting, error: actionError, clearError } = useApiAction();
+	const error = actionError || validationError;
 
 	function open() {
-		setError(null);
+		setValidationError(null);
+		clearError();
 		setFile(null);
 		setIsOpen(true);
 	}
@@ -33,45 +38,35 @@ export default function SubmitSolutionButton({
 		}
 
 		setIsOpen(false);
-		setError(null);
+		setValidationError(null);
+		clearError();
 		setFile(null);
 	}
 
 	async function submit() {
 		if (!file) {
-			setError("Please select a source file.");
+			setValidationError("Please select a source file.");
 			return;
 		}
 
-		setError(null);
-		setIsSubmitting(true);
+		setValidationError(null);
+		clearError();
 
 		const formData = new FormData();
 		formData.append("problemId", problemId);
 		formData.append("file", file);
 
 		try {
-			const response = await fetch("/api/submissions", {
+			await run(() => apiFetch("/api/submissions", {
 				method: "POST",
 				body: formData,
-			});
-
-			const data = await response.json();
-
-			if (!response.ok) {
-				setError(data.error ?? "Unable to submit solution.");
-				return;
-			}
+			}, "Unable to submit solution."));
 
 			setIsOpen(false);
 			setFile(null);
 
 			router.refresh();
-		} catch {
-			setError("Unable to submit solution.");
-		} finally {
-			setIsSubmitting(false);
-		}
+		} catch { /* useApiAction stores the error for rendering. */ }
 	}
 
 	return (
@@ -85,24 +80,13 @@ export default function SubmitSolutionButton({
 			</button>
 
 			{isOpen && (
-				<div
-					className={styles.overlay}
-					role="presentation"
-					onMouseDown={event => {
-						if (
-							event.target === event.currentTarget &&
-							!isSubmitting
-						) {
-							close();
-						}
-					}}
+				<Modal
+					onClose={close}
+					closingDisabled={isSubmitting}
+					overlayClassName={styles.overlay}
+					modalClassName={styles.modal}
+					labelledBy="submit-solution-title"
 				>
-					<section
-						className={styles.modal}
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="submit-solution-title"
-					>
 						<header className={styles.header}>
 							<div>
 								<p className={styles.eyebrow}>
@@ -141,7 +125,8 @@ export default function SubmitSolutionButton({
 										.join(",")}
 									disabled={isSubmitting}
 									onChange={event => {
-										setError(null);
+										setValidationError(null);
+										clearError();
 										setFile(
 											event.target.files?.[0] ?? null,
 										);
@@ -183,8 +168,7 @@ export default function SubmitSolutionButton({
 								</button>
 							</div>
 						</div>
-					</section>
-				</div>
+				</Modal>
 			)}
 		</>
 	);

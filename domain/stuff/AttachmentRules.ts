@@ -1,3 +1,5 @@
+import { getStuffDisplayName } from "@/domain/stuff/Stuff";
+
 export const BUCKET = "problem-files";
 export const MAX_FILES = 10;
 export const MAX_TOTAL_SIZE = 4 * 1024 * 1024;
@@ -13,7 +15,7 @@ const ALLOWED_ATTACHMENT_TYPES: Record<string, readonly string[]> = {
 };
 
 export function sanitizeFilename(filename: string): string {
-	const basename = filename.replace(/\\/g, "/").split("/").pop() ?? "";
+	const basename = getStuffDisplayName(null, filename, "");
 	const cleaned = basename
 		.replace(/[\u0000-\u001f\u007f]/g, "")
 		.replace(/[<>:"|?*]/g, "_")

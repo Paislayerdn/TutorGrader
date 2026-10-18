@@ -3,6 +3,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/web/http/api-client";
+import { useApiAction } from "@/web/http/useApiAction";
+import Modal from "@/components/Modal";
 
 import styles from "./page.module.css";
 
@@ -19,12 +22,11 @@ export default function DeleteDraftButton({
 }: Props) {
 	const router = useRouter();
 
-	const [isDeleting, setIsDeleting] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
-	const [error, setError] = useState("");
+	const { run, isRunning: isDeleting, error, clearError } = useApiAction();
 
 	function handleOpenConfirm() {
-		setError("");
+		clearError();
 		setShowConfirm(true);
 	}
 
@@ -37,30 +39,14 @@ export default function DeleteDraftButton({
 	async function handleDelete() {
 		if (isDeleting) return;
 
-		setIsDeleting(true);
-		setError("");
-
 		try {
-			const response = await fetch(
+			await run(() => apiFetch(
 				`/api/problems/${problemId}/delete`,
 				{
 					method: "DELETE",
 				},
-			);
-
-			const result: unknown = await response.json();
-
-			if (!response.ok) {
-				const message =
-					typeof result === "object" &&
-					result !== null &&
-					"error" in result &&
-					typeof result.error === "string"
-						? result.error
-						: "Unable to delete problem draft.";
-
-				throw new Error(message);
-			}
+				"Unable to delete problem draft.",
+			));
 
 			router.push(
 				returnToProblems
@@ -70,14 +56,7 @@ export default function DeleteDraftButton({
 						: "/problems",
 			);
 			router.refresh();
-		} catch (error) {
-			setError(
-				error instanceof Error
-					? error.message
-					: "An unexpected error occurred.",
-			);
-			setIsDeleting(false);
-		}
+		} catch { /* useApiAction stores the error for rendering. */ }
 	}
 
 	return (
@@ -100,15 +79,14 @@ export default function DeleteDraftButton({
 			</div>
 
 			{showConfirm && (
-				<div
-					className={styles.modalOverlay}
-					onClick={handleCloseConfirm}
+				<Modal
+					onClose={handleCloseConfirm}
+					closingDisabled={isDeleting}
+					overlayClassName={styles.modalOverlay}
+					modalClassName={styles.modal}
+					labelledBy="delete-draft-title"
 				>
-					<div
-						className={styles.modal}
-						onClick={event => event.stopPropagation()}
-					>
-						<h2>Delete draft?</h2>
+						<h2 id="delete-draft-title">Delete draft?</h2>
 
 						<p>
 							{isPublished
@@ -137,8 +115,7 @@ export default function DeleteDraftButton({
 								{isDeleting ? "Deleting..." : "Delete"}
 							</button>
 						</div>
-					</div>
-				</div>
+				</Modal>
 			)}
 		</>
 	);

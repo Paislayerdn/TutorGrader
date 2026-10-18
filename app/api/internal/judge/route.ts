@@ -2,12 +2,13 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { JudgeService } from "@/services/JudgeService";
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { JudgeRepo } from "@/data/supabase/repositories/JudgeRepo";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_ATTEMPTS = 5;
+const judgeRepo = new JudgeRepo();
 
 type JudgeJob = {
 	id: number;
@@ -43,24 +44,13 @@ export async function POST(request: NextRequest) {
 
 	const workerId = randomUUID();
 
-	const { data, error } = await supabaseAdmin.rpc(
-		"claim_submission_judge_jobs",
-		{
-			p_worker_id: workerId,
-			p_batch_size: 1,
-		},
-	);
-
-	if (error) {
+	let jobs: JudgeJob[];
+	try {
+		jobs = await judgeRepo.claimJob(workerId);
+	} catch (error) {
 		console.error("Unable to claim judge job:", error);
-
-		return NextResponse.json(
-			{ error: "Unable to claim a judging job." },
-			{ status: 500 },
-		);
+		return NextResponse.json({ error: "Unable to claim a judging job." }, { status: 500 });
 	}
-
-	const jobs = (data ?? []) as JudgeJob[];
 
 	if (jobs.length === 0) {
 		return NextResponse.json({
@@ -76,19 +66,7 @@ export async function POST(request: NextRequest) {
 
 		await judge.judge(job.submission_id);
 
-		const { error: finishError } = await supabaseAdmin
-			.from("submission_judge_queue")
-			.update({
-				status: "COMPLETED",
-				locked_until: null,
-				locked_by: null,
-				last_error: null,
-				finished_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			})
-			.eq("id", job.id)
-			.eq("locked_by", workerId)
-			.eq("status", "RUNNING");
+		const finishError = await judgeRepo.completeJob(job.id, workerId);
 
 		if (finishError) {
 			console.error("Unable to complete judge job:", finishError);
@@ -118,24 +96,7 @@ export async function POST(request: NextRequest) {
 			15 * 60_000,
 		);
 
-		const now = Date.now();
-
-		const { error: updateError } = await supabaseAdmin
-			.from("submission_judge_queue")
-			.update({
-				status: exhausted ? "FAILED" : "QUEUED",
-				available_at: new Date(now + retryDelayMs).toISOString(),
-				locked_until: null,
-				locked_by: null,
-				last_error: message,
-				finished_at: exhausted
-					? new Date(now).toISOString()
-					: null,
-				updated_at: new Date(now).toISOString(),
-			})
-			.eq("id", job.id)
-			.eq("locked_by", workerId)
-			.eq("status", "RUNNING");
+		const updateError = await judgeRepo.recordJobFailure(job.id, workerId, exhausted, retryDelayMs, message);
 
 		if (updateError) {
 			console.error("Unable to record job failure:", updateError);

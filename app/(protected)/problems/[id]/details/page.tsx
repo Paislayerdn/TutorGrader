@@ -5,14 +5,11 @@ import styles from "./page.module.css";
 import { getCurrentVisitor } from "@/lib/auth";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
-import { User } from "@/domain/user/User";
-import { Admin } from "@/domain/user/Admin";
 import { SubmissionHistoryRepo } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import { isUuid } from "@/lib/isUuid";
 
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 import PublishProblemButton from "./PublishProblemButton";
-import DeleteDraftButton from "./DeleteDraftButton";
 import SubmitSolutionButton from "./SubmitSolutionButton";
 import ProblemSubmissions from "./ProblemSubmissions";
 
@@ -37,39 +34,30 @@ export default async function ProblemDetailsPage({ params }: Props) {
 		notFound();
 	}
 
-	const isAdmin = user instanceof Admin;
+	const isAdmin = user.canManageProblems;
 
-	const canViewAttachments =
-		isAdmin || problem.status === ProblemStatus.ACTIVE;
+	const canViewAttachments = user.canDownloadProblem(problem);
 
 	const isDraft =
 		problem.currentVersionNumber === null ||
 		(problem.status === ProblemStatus.INACTIVE && problem.draft !== null);
 
-	if (!isAdmin) {
-		if (
-			problem.status === ProblemStatus.INACTIVE ||
-			problem.currentVersionNumber === null
-		) {
-			redirect("/problems");
-		}
+	if (!user.canViewProblem(problem)) {
+		redirect("/problems");
 	}
 
-	const version =
-		problem.status === ProblemStatus.INACTIVE && problem.draft
-			? problem.draft
-			: problem.currentVersion;
+	const version = problem.displayVersion;
 
 	if (!version) {
 		notFound();
 	}
 
 	const submissionHistory =
-		user instanceof User &&
+		user.isAuthenticated &&
 		!isAdmin &&
 		problem.status === ProblemStatus.ACTIVE
 			? await new SubmissionHistoryRepo().findHistory(
-				user.id,
+				user.userId!,
 				problem.id,
 			)
 			: [];

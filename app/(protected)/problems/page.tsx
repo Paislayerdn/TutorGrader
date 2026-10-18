@@ -4,17 +4,13 @@ import styles from "./page.module.css";
 
 import { getCurrentVisitor } from "@/lib/auth";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
-import { Admin } from "@/domain/user/Admin";
-import { Owner } from "@/domain/user/Owner";
 import GCButton from "@/components/GCButton";
-import ProblemStatusBadge from "@/components/ProblemStatusBadge";
-import ChangeProblemStatus from "./[id]/details/ChangeProblemStatus";
-import DeleteDraftButton from "./[id]/details/DeleteDraftButton";
+import ProblemCard from "./ProblemCard";
 
 export default async function ProblemsPage() {
 	const user = await getCurrentVisitor();
-	const canManageProblems = user instanceof Admin;
-	const isOwner = user instanceof Owner;
+	const canManageProblems = user.canManageProblems;
+	const isOwner = user.canRunGarbageCollection;
 
 	const problemRepo = new ProblemRepo();
 	const items = await problemRepo.findAllForListing(
@@ -54,44 +50,7 @@ export default async function ProblemsPage() {
 
 						<div className={styles.list}>
 							{draftProblems.map(problem => (
-								<article
-									key={problem.id}
-									className={styles.problem}
-								>
-									<Link
-										href={`/problems/${problem.id}/details`}
-										className={styles.problemLink}
-									>
-										<div className={styles.problemHeader}>
-											<h2>{problem.name}</h2>
-
-											<div className={styles.problemMeta}>
-												<span className={styles.draftBadge}>
-													DRAFT {problem.versionNumber}
-												</span>
-											</div>
-										</div>
-
-										<p className={styles.difficulty}>
-											{problem.difficulty ?? "Unspecified difficulty"}
-										</p>
-									</Link>
-
-									<div className={styles.problemActions}>
-										<Link
-											href={`/problems/${problem.id}/edit`}
-											className={styles.editButton}
-										>
-											Edit Problem
-										</Link>
-
-										<DeleteDraftButton
-											problemId={problem.id}
-											isPublished={false}
-											returnToProblems
-										/>
-									</div>
-								</article>
+								<ProblemCard key={problem.id} problem={problem} canManageProblems={canManageProblems} />
 							))}
 						</div>
 					</section>
@@ -107,64 +66,7 @@ export default async function ProblemsPage() {
 					) : (
 						<div className={styles.list}>
 							{publishedProblems.map(problem => (
-								<article
-									key={problem.id}
-									className={styles.problem}
-								>
-									<Link
-										href={`/problems/${problem.id}/details`}
-										className={styles.problemLink}
-									>
-										<div className={styles.problemHeader}>
-											<h2>{problem.name}</h2>
-
-											<div className={styles.problemMeta}>
-												<span className={styles.versionBadge}>
-													VERSION {problem.versionNumber}
-												</span>
-
-												{canManageProblems &&
-													problem.draftVersionNumber !== null && (
-														<span className={styles.draftBadge}>
-															DRAFT {problem.draftVersionNumber}
-														</span>
-													)}
-
-												<ProblemStatusBadge
-													status={problem.status}
-												/>
-											</div>
-										</div>
-
-										<p className={styles.difficulty}>
-											{problem.difficulty ?? "Unspecified difficulty"}
-										</p>
-									</Link>
-
-									{canManageProblems && (
-										<div className={styles.problemActions}>
-											<ChangeProblemStatus
-												problemId={problem.id}
-												currentStatus={problem.status}
-											/>
-
-											<Link
-												href={`/problems/${problem.id}/edit`}
-												className={styles.editButton}
-											>
-												Edit Problem
-											</Link>
-
-											{problem.draftVersionNumber !== null && (
-												<DeleteDraftButton
-													problemId={problem.id}
-													isPublished
-													returnToProblems
-												/>
-											)}
-										</div>
-									)}
-								</article>
+								<ProblemCard key={problem.id} problem={problem} canManageProblems={canManageProblems} />
 							))}
 						</div>
 					)}

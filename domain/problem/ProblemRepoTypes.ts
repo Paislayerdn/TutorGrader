@@ -1,5 +1,4 @@
 import type { OutputComparison } from "./version/OutputComparison";
-import type { TestCase } from "./TestCase";
 import type { ProblemStatus } from "./ProblemStatus";
 
 export type CreateProblemDraftData = {
@@ -11,7 +10,7 @@ export type CreateProblemDraftData = {
 	memoryLimitKb: number;
 	outputComparison: OutputComparison;
 	languageIds: number[];
-	testCases: TestCase[];
+	testCases: { input: string; expectedOutput: string }[];
 	stuffIds?: string[];
 };
 
@@ -24,4 +23,11 @@ export type ProblemListItem = {
 	name: string;
 	difficulty: string | null;
 	isDraft: boolean;
+};
+
+export type ProblemStatusInfo = {
+	id: string;
+	status: ProblemStatus;
+	currentVersionNumber: number | null;
+	draftVersionNumber: number | null;
 };

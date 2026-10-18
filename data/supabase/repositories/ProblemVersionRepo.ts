@@ -93,11 +93,9 @@ export class ProblemVersionRepo {
 			stuffResult.data as StuffRow[]
 		).map(item => item.stuff_id);
 
-		const stuffs = await Promise.all(
-			stuffIds.map(id => this.stuffRepo.findById(id)),
-		);
+		const stuffs = await this.stuffRepo.findByIds(stuffIds);
 
-		if (stuffs.some(stuff => stuff === null)) {
+		if (stuffs.length !== stuffIds.length) {
 			throw new Error("Unable to load problem version attachments.");
 		}
 
@@ -126,7 +124,7 @@ export class ProblemVersionRepo {
 				? new Date(row.published_at)
 				: null,
 			resolvedLanguages,
-			stuffs.filter(stuff => stuff !== null),
+			stuffs,
 		);
 	}
 

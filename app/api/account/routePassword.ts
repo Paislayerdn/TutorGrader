@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import argon2 from "argon2";
 
 import { requireApiUser } from "@/lib/http";
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { createSession } from "@/lib/session";
+import { Password, PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
+import { PasswordHasher } from "@/data/security/PasswordHasher";
+import { UserRepo } from "@/data/supabase/repositories/UserRepo";
+
+const passwordHasher = new PasswordHasher();
+const userRepo = new UserRepo();
 
 export async function handlePassword(body: {
 	currentPassword?: string;
@@ -20,24 +24,35 @@ export async function handlePassword(body: {
 			{ status: 400 }
 		);
 	}
+	if (currentPassword.length > PASSWORD_MAX_LENGTH) {
+		return NextResponse.json(
+			{ error: "Current password is incorrect." },
+			{ status: 400 },
+		);
+	}
+	const parsedNewPassword = Password.parseNew(newPassword);
+	if (!parsedNewPassword) {
+		return NextResponse.json(
+			{ error: "New password must be between 8 and 128 characters." },
+			{ status: 400 },
+		);
+	}
 
-	const { data: account, error: lookupError } = await supabaseAdmin
-		.from("app_user")
-		.select("password_hash")
-		.eq("id", user.id)
-		.single();
-
-	if (lookupError || !account) {
-		console.error("Password lookup error:", lookupError);
-
+	let storedPasswordHash: string | null;
+	try {
+		storedPasswordHash = await userRepo.findPasswordHash(user.id);
+	} catch {
 		return NextResponse.json(
 			{ error: "Unable to find account." },
 			{ status: 500 }
 		);
 	}
+	if (!storedPasswordHash) {
+		return NextResponse.json({ error: "Unable to find account." }, { status: 500 });
+	}
 
-	const validPassword = await argon2.verify(
-		account.password_hash,
+	const validPassword = await passwordHasher.verify(
+		storedPasswordHash,
 		currentPassword
 	);
 
@@ -48,9 +63,9 @@ export async function handlePassword(body: {
 		);
 	}
 
-	const samePassword = await argon2.verify(
-		account.password_hash,
-		newPassword
+	const samePassword = await passwordHasher.verify(
+		storedPasswordHash,
+		parsedNewPassword.value
 	);
 
 	if (samePassword) {
@@ -60,25 +75,21 @@ export async function handlePassword(body: {
 		);
 	}
 
-	const passwordHash = await argon2.hash(newPassword);
+	const passwordHash = await passwordHasher.hash(parsedNewPassword.value);
 
-	const { error: updateError } = await supabaseAdmin.rpc(
-		"change_password_with_history",
-		{
-			p_user_id: user.id,
-			p_password_hash: passwordHash,
-		}
-	);
-
-	if (updateError) {
-		console.error("Password update error:", updateError);
-
+	try {
+		await userRepo.changePassword(user.id, passwordHash);
+	} catch {
 		return NextResponse.json(
 			{ error: "Unable to change password." },
 			{ status: 500 }
 		);
 	}
-	await createSession(user.id);
+	const passwordChangedAt = await userRepo.findPasswordChangedAt(user.id);
+	const issuedAt = passwordChangedAt
+		? Math.floor(passwordChangedAt.getTime() / 1000)
+		: undefined;
+	await createSession(user.id, issuedAt);
 
 	return NextResponse.json({
 		success: true,

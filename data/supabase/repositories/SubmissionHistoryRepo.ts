@@ -1,5 +1,6 @@
 
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { getStuffDisplayName } from "@/domain/stuff/Stuff";
 
 export type SubmissionHistoryTestResult = {
 	testCaseOrder: number;
@@ -269,10 +270,11 @@ export class SubmissionHistoryRepo {
 			const cardVersion = currentVersion ?? submittedVersion;
 			const stuff = stuffById.get(row.source_stuff_id);
 			const storagePath = stuff?.storage_path ?? "";
-			const sourceFilename =
-				stuff?.original_filename ||
-				storagePath.replace(/\\/g, "/").split("/").pop() ||
-				"Source file";
+			const sourceFilename = getStuffDisplayName(
+				stuff?.original_filename,
+				storagePath,
+				"Source file",
+			);
 
 			const item: SubmissionHistoryItem = {
 				id: row.id,

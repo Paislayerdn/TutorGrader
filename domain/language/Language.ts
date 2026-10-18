@@ -22,4 +22,7 @@ export class Language {
 	public get name(): string { return this._name; }
 	public get addedAt(): Date { return new Date(this._addedAt); }
 	public get extensions(): string[] { return [...this._extensions]; }
+	public supportsExtension(extension: string): boolean {
+		return this._extensions.some(value => value.toLowerCase() === extension.toLowerCase());
+	}
 }

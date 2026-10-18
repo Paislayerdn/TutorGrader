@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { requireApiAdmin, route } from "@/lib/http";
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
+import { AttachmentStorage } from "@/data/storage/AttachmentStorage";
 
 type Props = {
 	params: Promise<{
@@ -12,6 +12,7 @@ type Props = {
 };
 
 const problemRepo = new ProblemRepo();
+const attachmentStorage = new AttachmentStorage();
 
 export const DELETE = route<Props>(async (_request: Request, { params }) => {
 	await requireApiAdmin();
@@ -25,7 +26,7 @@ export const DELETE = route<Props>(async (_request: Request, { params }) => {
 		);
 	}
 
-	const problem = await problemRepo.findById(id);
+	const problem = await problemRepo.findStatusInfo(id);
 
 	if (!problem) {
 		return NextResponse.json(
@@ -53,11 +54,9 @@ export const DELETE = route<Props>(async (_request: Request, { params }) => {
 		}
 
 		for (const [bucket, paths] of pathsByBucket) {
-			const { error } = await supabaseAdmin.storage
-				.from(bucket)
-				.remove(paths);
-
-			if (error) {
+			try {
+				await attachmentStorage.remove(bucket, paths);
+			} catch (error) {
 				console.error(
 					"Problem attachment cleanup failed:",
 					error,

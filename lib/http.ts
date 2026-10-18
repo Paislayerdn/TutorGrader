@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { User } from "@/domain/user/User";
 import { getCurrentVisitor } from "@/lib/auth";
+import { isRecord } from "@/domain/shared/isRecord";
+
+export { isRecord } from "@/domain/shared/isRecord";
 
 export class HttpError extends Error {
 	constructor(
@@ -11,21 +14,21 @@ export class HttpError extends Error {
 	}
 }
 
-export async function readJsonObject(req: Request): Promise<Record<string, unknown>> {
+export async function readJsonObject(
+	req: Request,
+	invalidJsonMessage = "Invalid JSON body.",
+	invalidObjectMessage = "Invalid request body.",
+): Promise<Record<string, unknown>> {
 	let value: unknown;
 	try {
 		value = await req.json();
 	} catch {
-		throw new HttpError(400, "Invalid JSON body.");
+		throw new HttpError(400, invalidJsonMessage);
 	}
 	if (!isRecord(value)) {
-		throw new HttpError(400, "Invalid JSON body.");
+		throw new HttpError(400, invalidObjectMessage);
 	}
 	return value as Record<string, unknown>;
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function fileResponse(file: Blob, filename: string): Response {

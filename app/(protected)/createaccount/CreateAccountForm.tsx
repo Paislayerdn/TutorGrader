@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { USERNAME_PATTERN, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "@/domain/user/Username";
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
 
 import styles from "./page.module.css";
 
@@ -73,6 +75,9 @@ export default function CreateAccountForm({
 						<span>Username</span>
 						<input
 							type="text"
+							minLength={USERNAME_MIN_LENGTH}
+							maxLength={USERNAME_MAX_LENGTH}
+							pattern={USERNAME_PATTERN}
 							value={username}
 							onChange={(event) => setUsername(event.target.value)}
 							autoComplete="username"
@@ -98,6 +103,8 @@ export default function CreateAccountForm({
 						<span>Initial password</span>
 						<input
 							type="password"
+							minLength={PASSWORD_MIN_LENGTH}
+							maxLength={PASSWORD_MAX_LENGTH}
 							value={password}
 							onChange={(event) => setPassword(event.target.value)}
 							autoComplete="new-password"

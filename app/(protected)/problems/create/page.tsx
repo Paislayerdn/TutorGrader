@@ -6,12 +6,11 @@ import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
 import CreateProblemForm from "./CreateProblemForm";
 import styles from "./page.module.css";
 
-import { Admin } from "@/domain/user/Admin";
 
 export default async function CreateProblemPage() {
 	const user = await getCurrentVisitor();
 
-	if (!(user instanceof Admin)) {
+	if (!user.canManageProblems) {
 		redirect("/problems");
 	}
 

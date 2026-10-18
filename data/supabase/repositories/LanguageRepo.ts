@@ -14,7 +14,29 @@ type LanguageExtensionRow = {
 };
 
 export class LanguageRepo {
+	private static readonly CACHE_TTL_MS = 30_000;
+	private static cache: { expiresAt: number; languages: Language[] } | null = null;
+	private static pending: Promise<Language[]> | null = null;
+
 	async findAll(): Promise<Language[]> {
+		if (LanguageRepo.cache && LanguageRepo.cache.expiresAt > Date.now()) {
+			return LanguageRepo.cache.languages;
+		}
+		if (LanguageRepo.pending) return LanguageRepo.pending;
+
+		LanguageRepo.pending = this.loadAll().then(languages => {
+			LanguageRepo.cache = {
+				expiresAt: Date.now() + LanguageRepo.CACHE_TTL_MS,
+				languages,
+			};
+			return languages;
+		}).finally(() => {
+			LanguageRepo.pending = null;
+		});
+		return LanguageRepo.pending;
+	}
+
+	private async loadAll(): Promise<Language[]> {
 		const { data: languageRows, error: languageError } =
 			await supabaseAdmin
 				.from("language")

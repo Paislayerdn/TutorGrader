@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 
 import styles from "./page.module.css";
+import { apiFetch } from "@/web/http/api-client";
+import { useApiAction } from "@/web/http/useApiAction";
 
 type Props = {
 	problemId: string;
@@ -19,8 +21,7 @@ export default function ChangeProblemStatus({
 	const router = useRouter();
 
 	const [status, setStatus] = useState(currentStatus);
-	const [isSaving, setIsSaving] = useState(false);
-	const [error, setError] = useState("");
+	const { run, isRunning: isSaving, error } = useApiAction();
 
 	async function handleChange(nextStatus: ProblemStatus) {
 		if (isSaving || nextStatus === status) return;
@@ -28,11 +29,8 @@ export default function ChangeProblemStatus({
 		const previousStatus = status;
 
 		setStatus(nextStatus);
-		setIsSaving(true);
-		setError("");
-
 		try {
-			const response = await fetch(
+			await run(() => apiFetch(
 				`/api/problems/${problemId}/status`,
 				{
 					method: "PATCH",
@@ -41,33 +39,12 @@ export default function ChangeProblemStatus({
 					},
 					body: JSON.stringify({ status: nextStatus }),
 				},
-			);
-
-			const result: unknown = await response.json();
-
-			if (!response.ok) {
-				const message =
-					typeof result === "object" &&
-					result !== null &&
-					"error" in result &&
-					typeof result.error === "string"
-						? result.error
-						: "Unable to update problem status.";
-
-				throw new Error(message);
-			}
+				"Unable to update problem status.",
+			));
 
 			router.refresh();
-		} catch (error) {
+		} catch {
 			setStatus(previousStatus);
-
-			setError(
-				error instanceof Error
-					? error.message
-					: "An unexpected error occurred.",
-			);
-		} finally {
-			setIsSaving(false);
 		}
 	}
 

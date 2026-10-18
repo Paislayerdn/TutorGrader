@@ -21,10 +21,12 @@ export class User extends Visitor {
 	public override canDownloadProblem(problem: Problem): boolean {
 		return this.canViewProblem(problem) && problem.status === ProblemStatus.ACTIVE;
 	}
+	public override canSubmitTo(problem: Problem): boolean { return problem.isSubmittable; }
 	public override canReadSourceOf(ownerUserId: string): boolean {
 		return ownerUserId === this.id;
 	}
 	public get username(): string { return this.data.username; }
+	public override get userId(): string { return this.id; }
 	public get registeredName(): string { return this.data.registeredName; }
 	public get status(): UserStatus { return this.data.status; }
 	public get createdAt(): Date { return this.data.createdAt; }

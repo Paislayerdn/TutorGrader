@@ -1,29 +1,21 @@
 import { NextResponse } from "next/server";
-import argon2 from "argon2";
 
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { UserRepo } from "@/data/supabase/repositories/UserRepo";
+import { PasswordHasher } from "@/data/security/PasswordHasher";
+import { PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
+import { readJsonObject } from "@/lib/http";
 import { createSession } from "@/lib/session";
 
 export const runtime = "nodejs";
+const userRepo = new UserRepo();
+const passwordHasher = new PasswordHasher();
+// TODO: Add a Vercel Firewall rate-limit rule for login attempts.
 
 export async function POST(request: Request) {
 	let body: Record<string, unknown>;
 
 	try {
-		const parsed: unknown = await request.json();
-
-		if (
-			typeof parsed !== "object" ||
-			parsed === null ||
-			Array.isArray(parsed)
-		) {
-			return NextResponse.json(
-				{ error: "Invalid request body." },
-				{ status: 400 },
-			);
-		}
-
-		body = parsed as Record<string, unknown>;
+		body = await readJsonObject(request);
 	} catch {
 		return NextResponse.json(
 			{ error: "Invalid request body." },
@@ -55,22 +47,28 @@ export async function POST(request: Request) {
 			);
 		}
 
-		const { data: user, error } = await supabaseAdmin
-			.from("app_user")
-			.select("id, password_hash, status")
-			.ilike("username", username.replace(/_/g, "\\_"))
-			.maybeSingle();
+		const user = await userRepo.findCredentialsByUsername(username);
 
-		if (error) {
-			console.error("Login database error:", error);
-
+		if (!user) {
+			if (password.length <= PASSWORD_MAX_LENGTH) {
+				await passwordHasher.verifyDummy(password);
+			}
 			return NextResponse.json(
-				{ error: "Unable to sign in." },
-				{ status: 500 }
+				{ error: "Invalid username or password." },
+				{ status: 401 }
 			);
 		}
 
-		if (!user) {
+		if (password.length > PASSWORD_MAX_LENGTH) {
+			return NextResponse.json(
+				{ error: "Invalid username or password." },
+				{ status: 401 },
+			);
+		}
+
+		const validPassword = await passwordHasher.verify(user.passwordHash, password);
+
+		if (!validPassword) {
 			return NextResponse.json(
 				{ error: "Invalid username or password." },
 				{ status: 401 }
@@ -80,19 +78,7 @@ export async function POST(request: Request) {
 		if (user.status !== "ACTIVE") {
 			return NextResponse.json(
 				{ error: "This account is not active." },
-				{ status: 403 }
-			);
-		}
-
-		const validPassword = await argon2.verify(
-			user.password_hash,
-			password
-		);
-
-		if (!validPassword) {
-			return NextResponse.json(
-				{ error: "Invalid username or password." },
-				{ status: 401 }
+				{ status: 403 },
 			);
 		}
 

@@ -31,6 +31,13 @@ type SubmissionRow = {
 };
 
 export class SubmissionRepo {
+	async findSourceAccess(id: string): Promise<{ user_id: string; source_stuff_id: string } | null> {
+		const { data, error } = await supabaseAdmin.from("submission")
+			.select("user_id, source_stuff_id").eq("id", id).maybeSingle();
+		if (error) throw new Error("Unable to look up the submission.");
+		return data;
+	}
+
 	async create(data: CreateSubmissionData): Promise<SubmissionData> {
 		const { data: row, error } = await supabaseAdmin
 			.from("submission")

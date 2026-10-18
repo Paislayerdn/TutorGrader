@@ -1,8 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
 import { getCurrentVisitor } from "@/lib/auth";
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
-import { Admin } from "@/domain/user/Admin";
 import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
@@ -16,20 +14,10 @@ type Props = {
 	}>;
 };
 
-type DraftRow = {
-	problem_id: string;
-	version_number: number;
-};
-
-type TestCaseRow = {
-	input: string;
-	expected_output: string;
-};
-
 export default async function EditProblemPage({ params }: Props) {
 	const user = await getCurrentVisitor();
 
-	if (!(user instanceof Admin)) {
+	if (!user.canManageProblems) {
 		redirect("/problems");
 	}
 
@@ -39,80 +27,21 @@ export default async function EditProblemPage({ params }: Props) {
 		notFound();
 	}
 
-	const { data, error } = await supabaseAdmin.rpc(
-		"create_problem_edit_draft",
-		{
-			p_problem_id: id,
-		},
-	);
-
-	if (error) {
-		console.error("Unable to prepare problem edit draft:", {
-			message: error.message,
-			code: error.code,
-			details: error.details,
-			hint: error.hint,
-		});
-
-		notFound();
-	}
-
-	const draftRows = (data ?? []) as DraftRow[];
-	const draft = draftRows[0];
-
-	if (
-		!draft ||
-		draft.problem_id !== id ||
-		!Number.isSafeInteger(draft.version_number)
-	) {
-		notFound();
-	}
-
 	const problemRepo = new ProblemRepo();
-	const problem = await problemRepo.findById(id);
-
-	if (!problem) {
+	let version;
+	try {
+		version = await problemRepo.openDraftForEditing(id);
+	} catch (error) {
+		console.error("Unable to prepare problem edit draft:", error);
 		notFound();
 	}
-
-	const version =
-		problem.draft?.versionNumber === draft.version_number
-			? problem.draft
-			: null;
-
-	if (!version) {
+	let testCases;
+	try {
+		testCases = await problemRepo.findDraftTestCases(id, version.versionNumber);
+	} catch (error) {
+		console.error("Unable to load draft test cases:", error);
 		notFound();
 	}
-
-	const { data: testCaseRows, error: testCaseError } =
-		await supabaseAdmin
-			.from("problem_version_test_case")
-			.select(`
-				test_case (
-					input,
-					expected_output
-				)
-			`)
-			.eq("problem_id", id)
-			.eq("version_number", draft.version_number)
-			.order("order", { ascending: true });
-
-	if (testCaseError) {
-		console.error("Unable to load draft test cases:", testCaseError);
-		notFound();
-	}
-
-	const testCases = ((testCaseRows ?? []) as Array<{
-		test_case:
-			| TestCaseRow
-			| TestCaseRow[]
-			| null;
-	}>).flatMap(row => {
-		if (!row.test_case) return [];
-		return Array.isArray(row.test_case)
-			? row.test_case
-			: [row.test_case];
-	});
 
 	const languageRepo = new LanguageRepo();
 	const languages = await languageRepo.findAll();
@@ -129,7 +58,7 @@ export default async function EditProblemPage({ params }: Props) {
 		languageIds: version.languages.map(language => language.id),
 		testCases: testCases.map(testCase => ({
 			input: testCase.input,
-			expectedOutput: testCase.expected_output,
+			expectedOutput: testCase.expectedOutput,
 		})),
 		attachments: version.stuffs.map(stuff => ({
 			id: stuff.id,

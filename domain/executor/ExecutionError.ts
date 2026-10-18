@@ -1,9 +1,6 @@
-export type ExecutionErrorKind =
-	| "COMPILE_ERROR"
-	| "RUNTIME_ERROR"
-	| "TIME_LIMIT"
-	| "MEMORY_LIMIT"
-	| "PROVIDER_ERROR";
+import type { ExecutionFailureVerdict } from "@/domain/submission/TestVerdict";
+
+export type ExecutionErrorKind = ExecutionFailureVerdict;
 
 export type ExecutionError = {
 	kind: ExecutionErrorKind;

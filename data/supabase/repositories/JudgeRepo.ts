@@ -48,6 +48,34 @@ export type JudgeTestResultInput = {
 };
 
 export class JudgeRepo {
+	async claimJob(workerId: string): Promise<{ id: number; submission_id: string; attempts: number }[]> {
+		const { data, error } = await supabaseAdmin.rpc("claim_submission_judge_jobs", {
+			p_worker_id: workerId, p_batch_size: 1,
+		});
+		if (error) throw error;
+		return (data ?? []) as { id: number; submission_id: string; attempts: number }[];
+	}
+
+	async completeJob(id: number, workerId: string): Promise<Error | null> {
+		const now = new Date().toISOString();
+		const { error } = await supabaseAdmin.from("submission_judge_queue").update({
+			status: "COMPLETED", locked_until: null, locked_by: null,
+			last_error: null, finished_at: now, updated_at: now,
+		}).eq("id", id).eq("locked_by", workerId).eq("status", "RUNNING");
+		return error;
+	}
+
+	async recordJobFailure(id: number, workerId: string, exhausted: boolean, retryDelayMs: number, message: string): Promise<Error | null> {
+		const now = Date.now();
+		const { error } = await supabaseAdmin.from("submission_judge_queue").update({
+			status: exhausted ? "FAILED" : "QUEUED",
+			available_at: new Date(now + retryDelayMs).toISOString(),
+			locked_until: null, locked_by: null, last_error: message,
+			finished_at: exhausted ? new Date(now).toISOString() : null,
+			updated_at: new Date(now).toISOString(),
+		}).eq("id", id).eq("locked_by", workerId).eq("status", "RUNNING");
+		return error;
+	}
 	async findSubmission(
 		submissionId: string,
 	): Promise<JudgeSubmissionRow> {

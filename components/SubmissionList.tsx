@@ -1,57 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
+import { formatSubmissionDate, getPassedCount, getSubmissionLabel } from "./submission-formatters";
 import styles from "./SubmissionList.module.css";
 
 type Props = {
 	submissions: SubmissionHistoryItem[];
 };
 
-function formatDate(value: string): string {
-	return `${new Date(value)
-		.toISOString()
-		.slice(0, 16)
-		.replace("T", " ")} UTC`;
-}
-
-function getSubmissionLabel(
-	submission: SubmissionHistoryItem,
-): string {
-	return submission.testResults.length > 0 &&
-		submission.testResults.every(result => result.status === "PASS")
-		? "Complete"
-		: "Incomplete";
-}
-
-function getPassedCount(submission: SubmissionHistoryItem): number {
-	return submission.testResults.filter(
-		result => result.status === "PASS",
-	).length;
-}
-
 export default function SubmissionList({ submissions }: Props) {
 	const [selected, setSelected] =
 		useState<SubmissionHistoryItem | null>(null);
-
-	useEffect(() => {
-		if (!selected) return;
-
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				setSelected(null);
-			}
-		};
-
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, [selected]);
 
 	if (submissions.length === 0) {
 		return (
@@ -82,7 +45,7 @@ export default function SubmissionList({ submissions }: Props) {
 							<span className={styles.meta}>
 								{submission.languageName}
 								{" · "}
-								{formatDate(submission.submittedAt)}
+								{formatSubmissionDate(submission.submittedAt)}
 							</span>
 						</div>
 

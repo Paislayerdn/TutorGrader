@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { getSession, getSessionStatus } from "@/lib/session";
+import { getSessionStatus } from "@/lib/session";
 import { UserRepo } from "@/data/supabase/repositories/UserRepo";
 import { UserStatus } from "@/domain/user/UserStatus";
 import { Visitor } from "@/domain/user/Visitor";

@@ -22,6 +22,33 @@ type StuffRow = {
 };
 
 export class StuffRepo {
+	async findProblemAccess(stuffId: string): Promise<{
+		problem_id: string; version_number: number;
+		problem: { status: string; current_version_number: number | null; current_draft_number: number | null };
+	}[]> {
+		const { data, error } = await supabaseAdmin.from("problem_version_stuff")
+			.select("problem_id, version_number, problem!inner(status, current_version_number, current_draft_number)")
+			.eq("stuff_id", stuffId);
+		if (error) {
+			console.error("Attachment association lookup error:", error);
+			throw new Error("Unable to verify attachment access.");
+		}
+		return (data ?? []) as unknown as {
+			problem_id: string; version_number: number;
+			problem: { status: string; current_version_number: number | null; current_draft_number: number | null };
+		}[];
+	}
+
+	async findProblemVersionLinks(stuffId: string): Promise<{ problem_id: string; version_number: number }[]> {
+		const { data, error } = await supabaseAdmin.from("problem_version_stuff")
+			.select("problem_id, version_number").eq("stuff_id", stuffId);
+		if (error) {
+			console.error("Attachment association lookup error:", error);
+			throw new Error("Unable to verify attachment access.");
+		}
+		return data ?? [];
+	}
+
 	private static readonly STUFF_COLUMNS =
 		"id, file_extension, bucket, storage_path, uploaded_by, original_filename, created_at";
 
@@ -39,7 +66,27 @@ export class StuffRepo {
 
 		if (!data) return null;
 
-		const row = data as StuffRow;
+		return this.toStuff(data as StuffRow);
+	}
+
+	async findByIds(ids: string[]): Promise<Stuff[]> {
+		if (ids.length === 0) return [];
+		const { data, error } = await supabaseAdmin
+			.from("stuff")
+			.select(StuffRepo.STUFF_COLUMNS)
+			.in("id", ids);
+		if (error) {
+			console.error("Stuff lookup error:", error);
+			throw new Error("Unable to load file metadata.");
+		}
+		const byId = new Map((data as StuffRow[]).map(row => [row.id, this.toStuff(row)]));
+		return ids.flatMap(id => {
+			const stuff = byId.get(id);
+			return stuff ? [stuff] : [];
+		});
+	}
+
+	private toStuff(row: StuffRow): Stuff {
 		const stuffData: StuffData = {
 			id: row.id,
 			fileExtension: row.file_extension,
@@ -49,7 +96,6 @@ export class StuffRepo {
 			originalFilename: row.original_filename,
 			createdAt: new Date(row.created_at),
 		};
-
 		return new Stuff(stuffData);
 	}
 

@@ -2,154 +2,31 @@ import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
-import { isRecord, requireApiAdmin, route } from "@/lib/http";
+import { AttachmentStorage } from "@/data/storage/AttachmentStorage";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { StuffRepo, type CreateStuffData } from "@/data/supabase/repositories/StuffRepo";
-import { TestCase } from "@/domain/problem/TestCase";
-import { OutputComparison } from "@/domain/problem/version/OutputComparison";
-import { BUCKET, MAX_FILES, MAX_TOTAL_SIZE, isAllowedAttachment, sanitizeFilename } from "@/domain/stuff/AttachmentRules";
+import { ProblemDraftInput, ProblemDraftInputError } from "@/domain/problem/ProblemDraftInput";
+import { BUCKET } from "@/domain/stuff/AttachmentRules";
+import { requireApiAdmin, route } from "@/lib/http";
 
 export const runtime = "nodejs";
 
 const problemRepo = new ProblemRepo();
 const stuffRepo = new StuffRepo();
+const attachmentStorage = new AttachmentStorage();
 
 export const POST = route(async (request: Request) => {
 	const currentUser = await requireApiAdmin();
 
-	let body: Record<string, unknown>;
-	let files: File[];
-
+	let input: ProblemDraftInput;
 	try {
 		const formData = await request.formData();
-		const payload = formData.get("payload");
-		const rawFiles = formData.getAll("files");
-
-		if (typeof payload !== "string") {
-			throw new Error("Missing problem data.");
+		input = await ProblemDraftInput.fromFormData(formData, { mode: "create" });
+	} catch (error) {
+		if (error instanceof ProblemDraftInputError) {
+			return NextResponse.json({ error: error.message }, { status: error.status });
 		}
-
-		const parsed: unknown = JSON.parse(payload);
-
-		if (!isRecord(parsed)) {
-			throw new Error("Invalid problem data.");
-		}
-
-		if (!rawFiles.every(value => value instanceof File)) {
-			throw new Error("Invalid uploaded files.");
-		}
-
-		body = parsed;
-		files = rawFiles as File[];
-	} catch {
-		return NextResponse.json(
-			{ error: "Invalid multipart request." },
-			{ status: 400 },
-		);
-	}
-
-	const name = typeof body.name === "string" ? body.name.trim() : "";
-	const description =
-		typeof body.description === "string" ? body.description : null;
-	const difficulty =
-		typeof body.difficulty === "string"
-			? body.difficulty.trim() || null
-			: null;
-
-	const timeLimitMs = body.timeLimitMs;
-	const memoryLimitKb = body.memoryLimitKb;
-	const outputComparison = body.outputComparison;
-	const languageIds = body.languageIds;
-	const rawTestCases = body.testCases;
-
-	if (!name) {
-		return NextResponse.json(
-			{ error: "Problem name is required." },
-			{ status: 400 },
-		);
-	}
-
-	if (
-		typeof timeLimitMs !== "number" ||
-		!Number.isSafeInteger(timeLimitMs) ||
-		timeLimitMs < 0 ||
-		typeof memoryLimitKb !== "number" ||
-		!Number.isSafeInteger(memoryLimitKb) ||
-		memoryLimitKb < 0
-	) {
-		return NextResponse.json(
-			{ error: "Time and memory limits must be non-negative integers." },
-			{ status: 400 },
-		);
-	}
-
-	if (
-		!Object.values(OutputComparison).includes(
-			outputComparison as OutputComparison,
-		)
-	) {
-		return NextResponse.json(
-			{ error: "Invalid output comparison." },
-			{ status: 400 },
-		);
-	}
-
-	if (
-		!Array.isArray(languageIds) ||
-		languageIds.length === 0 ||
-		!languageIds.every(id => Number.isSafeInteger(id) && id > 0)
-	) {
-		return NextResponse.json(
-			{ error: "Select at least one valid language." },
-			{ status: 400 },
-		);
-	}
-
-	if (
-		!Array.isArray(rawTestCases) ||
-		rawTestCases.length === 0 ||
-		!rawTestCases.every(
-			testCase =>
-				isRecord(testCase) &&
-				typeof testCase.input === "string" &&
-				typeof testCase.expectedOutput === "string",
-		)
-	) {
-		return NextResponse.json(
-			{ error: "At least one valid test case is required." },
-			{ status: 400 },
-		);
-	}
-
-	if (files.length > MAX_FILES) {
-		return NextResponse.json(
-			{ error: `You can upload at most ${MAX_FILES} files.` },
-			{ status: 400 },
-		);
-	}
-
-	let totalSize = 0;
-	const filenames: string[] = [];
-
-	for (const file of files) {
-		const filename = sanitizeFilename(file.name);
-		if (!isAllowedAttachment(filename, file.type)) {
-			return NextResponse.json(
-				{ error: `Unsupported file type: ${filename}` },
-				{ status: 400 },
-			);
-		}
-
-		totalSize += file.size;
-		filenames.push(filename);
-	}
-
-	if (totalSize > MAX_TOTAL_SIZE) {
-		return NextResponse.json(
-			{ error: "The combined file size must not exceed 4 MiB." },
-			{ status: 413 },
-		);
+		return NextResponse.json({ error: "Invalid multipart request." }, { status: 400 });
 	}
 
 	const uploadedPaths: string[] = [];
@@ -157,27 +34,20 @@ export const POST = route(async (request: Request) => {
 	let metadataCreated = false;
 
 	try {
-		for (let i = 0; i < files.length; i++) {
-			const file = files[i];
-			const filename = filenames[i];
+		for (let i = 0; i < input.files.length; i++) {
+			const file = input.files[i];
+			const filename = input.filenames[i];
 			const id = randomUUID();
-			const storagePath =
-				`${currentUser.id}/${id}/${filename}`;
+			const storagePath = `${currentUser.id}/${id}/${filename}`;
 
-			const { error } = await supabaseAdmin.storage
-				.from(BUCKET)
-				.upload(storagePath, file, {
-					contentType: file.type,
-					upsert: false,
-				});
-
-			if (error) {
-				console.error("Storage upload error:", error);
-				throw new Error("Unable to upload attachments.");
-			}
-
+			await attachmentStorage.upload(
+				BUCKET,
+				storagePath,
+				file,
+				file.type,
+				"Unable to upload attachments.",
+			);
 			uploadedPaths.push(storagePath);
-
 			stuffRecords.push({
 				id,
 				fileExtension: extname(filename).slice(1).toLowerCase(),
@@ -189,59 +59,42 @@ export const POST = route(async (request: Request) => {
 
 		await stuffRepo.createMany(stuffRecords);
 		metadataCreated = stuffRecords.length > 0;
-
 		const created = await problemRepo.createDraft({
 			createdById: currentUser.id,
-			name,
-			description,
-			difficulty,
-			timeLimitMs,
-			memoryLimitKb,
-			outputComparison: outputComparison as OutputComparison,
-			languageIds: [...new Set(languageIds as number[])],
-			testCases: rawTestCases.map( testCase =>
-				new TestCase(
-					testCase.input as string,
-					testCase.expectedOutput as string,
-				)
-			),
+			name: input.name,
+			description: input.description,
+			difficulty: input.difficulty,
+			timeLimitMs: input.timeLimitMs,
+			memoryLimitKb: input.memoryLimitKb,
+			outputComparison: input.outputComparison,
+			languageIds: input.languageIds,
+			testCases: input.testCases.map(testCase => ({
+				input: testCase.input,
+				expectedOutput: testCase.expectedOutput,
+			})),
 			stuffIds: stuffRecords.map(stuff => stuff.id),
 		});
 
-		return NextResponse.json(
-			{ problem: created },
-			{ status: 201 },
-		);
+		return NextResponse.json({ problem: created }, { status: 201 });
 	} catch (error) {
 		console.error("Problem draft creation error:", error);
-
 		let safeToRemoveFiles = true;
-
 		if (metadataCreated) {
 			try {
-				await stuffRepo.deleteByIds(
-					stuffRecords.map(stuff => stuff.id),
-				);
+				await stuffRepo.deleteByIds(stuffRecords.map(stuff => stuff.id));
 			} catch (cleanupError) {
-				// A draft may already reference these rows. Preserve its files.
+				// Keep storage when metadata rollback fails; the draft may reference it.
 				safeToRemoveFiles = false;
 				console.error("Metadata rollback failed:", cleanupError);
 			}
 		}
-
 		if (safeToRemoveFiles && uploadedPaths.length > 0) {
-			const { error: cleanupError } = await supabaseAdmin.storage
-				.from(BUCKET)
-				.remove(uploadedPaths);
-
-			if (cleanupError) {
+			try {
+				await attachmentStorage.remove(BUCKET, uploadedPaths);
+			} catch (cleanupError) {
 				console.error("Storage rollback failed:", cleanupError);
 			}
 		}
-
-		return NextResponse.json(
-			{ error: "Unable to create problem draft." },
-			{ status: 500 },
-		);
+		return NextResponse.json({ error: "Unable to create problem draft." }, { status: 500 });
 	}
 });

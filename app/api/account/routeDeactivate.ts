@@ -2,21 +2,16 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/http";
 import { clearSession } from "@/lib/session";
-import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import { UserRepo } from "@/data/supabase/repositories/UserRepo";
+
+const userRepo = new UserRepo();
 
 export async function handleDeactivate() {
 	const user = await requireApiUser();
 
-	const { error } = await supabaseAdmin
-		.from("app_user")
-		.update({
-			status: "INACTIVE",
-		})
-		.eq("id", user.id);
-
-	if (error) {
-		console.error("Account deactivation error:", error);
-
+	try {
+		await userRepo.deactivate(user.id);
+	} catch {
 		return NextResponse.json(
 			{ error: "Unable to deactivate account." },
 			{ status: 500 }

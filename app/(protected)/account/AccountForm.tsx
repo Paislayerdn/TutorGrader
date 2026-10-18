@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { USERNAME_PATTERN, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "@/domain/user/Username";
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
 
 import styles from "./page.module.css";
 
@@ -179,6 +181,9 @@ export default function AccountForm({
 								<div className={styles.row}>
 									<input
 										type="text"
+						minLength={USERNAME_MIN_LENGTH}
+						maxLength={USERNAME_MAX_LENGTH}
+						pattern={USERNAME_PATTERN}
 										value={newUsername}
 										onChange={(event) =>
 											setNewUsername(event.target.value)
@@ -267,6 +272,7 @@ export default function AccountForm({
 								<div className={styles.passwordForm}>
 									<input
 										type="password"
+						maxLength={PASSWORD_MAX_LENGTH}
 										placeholder="Current password"
 										value={currentPassword}
 										onChange={(event) =>
@@ -278,6 +284,8 @@ export default function AccountForm({
 
 									<input
 										type="password"
+						minLength={PASSWORD_MIN_LENGTH}
+						maxLength={PASSWORD_MAX_LENGTH}
 										placeholder="New password"
 										value={newPassword}
 										onChange={(event) =>
@@ -289,6 +297,8 @@ export default function AccountForm({
 
 									<input
 										type="password"
+						minLength={PASSWORD_MIN_LENGTH}
+						maxLength={PASSWORD_MAX_LENGTH}
 										placeholder="Confirm new password"
 										value={confirmPassword}
 										onChange={(event) =>

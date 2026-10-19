@@ -51,13 +51,14 @@ export const GET = route<Props>(async (_request, { params }) => {
 	let hasAccess = false;
 
 	for (const link of links) {
+		const problem = link.problem_version.problem;
 		const isPublishedVersion =
-			link.problem.current_version_number === link.version_number &&
-			(link.problem.status === "ACTIVE" || user.canManageProblems);
+			problem.current_version_number === link.version_number &&
+			(problem.status === "ACTIVE" || user.canManageProblems);
 
 		const isCurrentDraft =
 			user.canManageProblems &&
-			link.problem.current_draft_number === link.version_number;
+			problem.current_draft_number === link.version_number;
 
 		if (!isPublishedVersion && !isCurrentDraft) continue;
 

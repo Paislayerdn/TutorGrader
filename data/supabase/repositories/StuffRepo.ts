@@ -24,10 +24,10 @@ type StuffRow = {
 export class StuffRepo {
 	async findProblemAccess(stuffId: string): Promise<{
 		problem_id: string; version_number: number;
-		problem: { status: string; current_version_number: number | null; current_draft_number: number | null };
+		problem_version: { problem: { status: string; current_version_number: number | null; current_draft_number: number | null } };
 	}[]> {
 		const { data, error } = await supabaseAdmin.from("problem_version_stuff")
-			.select("problem_id, version_number, problem!inner(status, current_version_number, current_draft_number)")
+			.select("problem_id, version_number, problem_version!inner(problem!problem_version_problem_id_fkey!inner(status, current_version_number, current_draft_number))")
 			.eq("stuff_id", stuffId);
 		if (error) {
 			console.error("Attachment association lookup error:", error);
@@ -35,18 +35,8 @@ export class StuffRepo {
 		}
 		return (data ?? []) as unknown as {
 			problem_id: string; version_number: number;
-			problem: { status: string; current_version_number: number | null; current_draft_number: number | null };
+			problem_version: { problem: { status: string; current_version_number: number | null; current_draft_number: number | null } };
 		}[];
-	}
-
-	async findProblemVersionLinks(stuffId: string): Promise<{ problem_id: string; version_number: number }[]> {
-		const { data, error } = await supabaseAdmin.from("problem_version_stuff")
-			.select("problem_id, version_number").eq("stuff_id", stuffId);
-		if (error) {
-			console.error("Attachment association lookup error:", error);
-			throw new Error("Unable to verify attachment access.");
-		}
-		return data ?? [];
 	}
 
 	private static readonly STUFF_COLUMNS =

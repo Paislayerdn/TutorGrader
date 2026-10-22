@@ -4,6 +4,7 @@ import { getCurrentVisitor } from "@/lib/auth";
 import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
 
 import CreateProblemForm from "./CreateProblemForm";
+import PageFrame from "@/components/PageFrame";
 import styles from "./page.module.css";
 
 
@@ -18,8 +19,7 @@ export default async function CreateProblemPage() {
 	const languages = await languageRepo.findAll();
 
 	return (
-		<main className={styles.page}>
-			<section className={styles.content}>
+		<PageFrame pageClassName={styles.page} contentClassName={styles.content}>
 				<h1>Create Problem</h1>
 
 				<p className={styles.description}>
@@ -34,7 +34,6 @@ export default async function CreateProblemPage() {
 						extensions: language.extensions,
 					}))}
 				/>
-			</section>
-		</main>
+		</PageFrame>
 	);
 }

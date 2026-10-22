@@ -3,7 +3,6 @@ import {
 	JudgeRepo,
 	type JudgeSubmissionRow,
 	type JudgeTestCase,
-	type JudgeVersionRow,
 } from "@/data/supabase/repositories/JudgeRepo";
 import { ExecutorRegistry } from "@/services/ExecutorRegistry";
 import { OutputComparator } from "@/domain/executor/OutputComparator";
@@ -40,10 +39,18 @@ export class JudgeService {
 			throw new Error("Unable to start submission evaluation.");
 		}
 
+		// These reads are independent once the submission row is loaded.
+		// Run them together to avoid serial Supabase round trips.
+		const [problem, version, stuff] = await Promise.all([
+			this.judgeRepo.findProblem(submission.problem_id),
+			this.judgeRepo.findVersion(
+				submission.problem_id,
+				submission.version_number,
+			),
+			this.judgeRepo.findStuff(submission.source_stuff_id),
+		]);
+
 		// 2. Validate the problem and its published version.
-		const problem = await this.judgeRepo.findProblem(
-			submission.problem_id,
-		);
 
 		if (!problem) {
 			await this.failSubmission(submissionId);
@@ -58,12 +65,6 @@ export class JudgeService {
 			return;
 		}
 
-		const version: JudgeVersionRow | null =
-			await this.judgeRepo.findVersion(
-				submission.problem_id,
-				submission.version_number,
-			);
-
 		if (!version) {
 			await this.failSubmission(submissionId);
 			return;
@@ -75,19 +76,20 @@ export class JudgeService {
 		}
 
 		// 3. Download and validate the submitted source code.
-		const stuff = await this.judgeRepo.findStuff(
-			submission.source_stuff_id,
-		);
-
 		if (!stuff) {
 			await this.failSubmission(submissionId);
 			return;
 		}
 
-		const sourceFile = await this.judgeRepo.downloadStuff(
-			stuff.bucket,
-			stuff.storage_path,
-		);
+		// Source download and testcase lookup are independent network operations.
+		const [sourceFile, orderedCases]: [Blob | null, JudgeTestCase[] | null] =
+			await Promise.all([
+				this.judgeRepo.downloadStuff(stuff.bucket, stuff.storage_path),
+				this.judgeRepo.findOrderedTestCases(
+					submission.problem_id,
+					submission.version_number,
+				),
+			]);
 
 		if (!sourceFile) {
 			await this.failSubmission(submissionId);
@@ -105,13 +107,7 @@ export class JudgeService {
 			return;
 		}
 
-		// 4. Load test cases in their configured order.
-		const orderedCases: JudgeTestCase[] | null =
-			await this.judgeRepo.findOrderedTestCases(
-				submission.problem_id,
-				submission.version_number,
-			);
-
+		// 4. Testcases were loaded alongside the source download.
 		if (!orderedCases) {
 			await this.failSubmission(submissionId);
 			return;
@@ -285,6 +281,18 @@ export class JudgeService {
 			throw new Error("Unable to update submission status.");
 		}
 
+		// Wandbox compiles and runs on each request, so execute testcases in a
+		// small bounded batch. Other executors keep their existing execution path.
+		const batchExecutionResults = onlineCompiler || !selection.executor.executeBatch
+			? null
+			: await selection.executor.executeBatch(orderedCases.map(testCase => ({
+				sourceCode,
+				compilerId: selection.compilerId,
+				stdin: testCase.input,
+				timeLimitMs: version.time_limit_ms,
+				memoryLimitKb: version.memory_limit_kb,
+			})));
+
 		// 7. Execute every test case.
 		// Continue through every test case, even when an earlier case fails.
 		let hasEvaluationError = false;
@@ -319,6 +327,8 @@ export class JudgeService {
 							version.memory_limit_kb,
 						);
 					}
+				} else if (batchExecutionResults) {
+					result = batchExecutionResults[index];
 				} else {
 					result = await selection.executor.execute({
 						sourceCode,

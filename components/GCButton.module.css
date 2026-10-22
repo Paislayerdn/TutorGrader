@@ -1,4 +1,5 @@
 .container {
+	position: relative;
 	display: flex;
 	flex-direction: row;
 	align-items: center;
@@ -31,14 +32,60 @@
 }
 
 .result {
-	padding: 16px;
+	position: absolute;
+	top: calc(100% + 10px);
+	right: 0;
+	z-index: 20;
+	width: min(420px, calc(100vw - 32px));
+	max-height: min(70vh, 560px);
+	padding: 14px;
 	border: 1px solid var(--foreground);
 	border-radius: 8px;
+	background: var(--background);
+	box-shadow: 0 12px 32px rgb(0 0 0 / 22%);
 	overflow-wrap: anywhere;
+}
+
+.result::before {
+	position: absolute;
+	right: 20px;
+	bottom: 100%;
+	width: 10px;
+	height: 10px;
+	border-top: 1px solid var(--foreground);
+	border-left: 1px solid var(--foreground);
+	background: var(--background);
+	content: "";
+	transform: translateY(5px) rotate(45deg);
+}
+
+.resultHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.closeButton {
+	flex-shrink: 0;
+	padding: 0 4px;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font-size: 20px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.closeButton:focus-visible {
+	outline: 2px solid var(--foreground);
+	outline-offset: 2px;
 }
 
 .result pre {
 	margin-top: 12px;
+	max-height: 45vh;
+	overflow: auto;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	font-size: 12px;

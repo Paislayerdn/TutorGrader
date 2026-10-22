@@ -12,9 +12,9 @@
         "@supabase/supabase-js": "^2.117.3",
         "argon2": "^0.45.1",
         "jose": "^6.2.12",
-        "next": "16.4.0",
-        "react": "19.3.0",
-        "react-dom": "19.3.0"
+        "next": "^16.4.2",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1"
     },
     "devDependencies": {
         "@next/env": "^16.4.0",
@@ -24,5 +24,9 @@
         "eslint": "^9",
         "eslint-config-next": "16.4.0",
         "typescript": "^5"
+    },
+    "allowScripts": {
+        "argon2@0.45.1": true,
+        "unrs-resolver@1.12.2": true
     }
 }

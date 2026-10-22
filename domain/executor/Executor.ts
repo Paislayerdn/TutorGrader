@@ -5,4 +5,5 @@ import type { ExecutionResult } from "./ExecutionResult";
 export interface Executor {
 	compile(request: CompilationRequest): Promise<ExecutionResult>;
 	execute(request: ExecutionRequest): Promise<ExecutionResult>;
+	executeBatch?(requests: ExecutionRequest[]): Promise<ExecutionResult[]>;
 }

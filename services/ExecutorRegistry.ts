@@ -18,14 +18,14 @@ export class ExecutorRegistry {
 			throw new Error("Invalid language ID.");
 		}
 
-		const executors = await this.executorRepo.findEnabledExecutors();
+		const [executors, mappings] = await Promise.all([
+			this.executorRepo.findEnabledExecutors(),
+			this.executorRepo.findDefaultMappingsForLanguage(languageId),
+		]);
 
 		if (executors.length === 0) {
 			throw new Error("No execution providers are enabled.");
 		}
-
-		const mappings =
-			await this.executorRepo.findDefaultMappingsForLanguage(languageId);
 
 		for (const executorRow of executors) {
 			const adapter = this.adapters.get(executorRow.code);

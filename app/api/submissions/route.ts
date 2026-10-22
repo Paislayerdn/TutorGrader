@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { SubmissionInProgressError, SubmissionRepo } from "@/data/supabase/repositories/SubmissionRepo";
+import { SubmissionHistoryRepo } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
 import { AttachmentStorage } from "@/data/storage/AttachmentStorage";
 import { HttpError, requireApiUser, route } from "@/lib/http";
@@ -16,6 +17,17 @@ const problemRepo = new ProblemRepo();
 const submissionRepo = new SubmissionRepo();
 const stuffRepo = new StuffRepo();
 const attachmentStorage = new AttachmentStorage();
+const submissionHistoryRepo = new SubmissionHistoryRepo();
+
+export const GET = route(async request => {
+	const user = await requireApiUser();
+	const query = new URL(request.url).searchParams.get("q")?.trim().toLowerCase() ?? "";
+	const groups = await submissionHistoryRepo.findHistory(user.id);
+
+	return NextResponse.json(
+		query ? groups.filter(group => group.problemName.toLowerCase().includes(query)) : groups,
+	);
+});
 
 export const POST = route(async req => {
 	const user = await requireApiUser();

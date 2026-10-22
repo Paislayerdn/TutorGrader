@@ -4,6 +4,7 @@ import { getCurrentVisitor } from "@/lib/auth";
 import { LanguageRepo } from "@/data/supabase/repositories/LanguageRepo";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
+import PageFrame from "@/components/PageFrame";
 
 import CreateProblemForm from "../../create/CreateProblemForm";
 import styles from "../../create/page.module.css";
@@ -71,8 +72,7 @@ export default async function EditProblemPage({ params }: Props) {
 	};
 
 	return (
-		<main className={styles.page}>
-			<section className={styles.content}>
+		<PageFrame pageClassName={styles.page} contentClassName={styles.content}>
 				<h1>Edit Problem</h1>
 
 				<p className={styles.description}>
@@ -88,7 +88,6 @@ export default async function EditProblemPage({ params }: Props) {
 					}))}
 					initialData={initialData}
 				/>
-			</section>
-		</main>
+		</PageFrame>
 	);
 }

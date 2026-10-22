@@ -1,10 +1,13 @@
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
 export function formatSubmissionDate(value: string): string {
-	return `${new Date(value)
-		.toISOString()
-		.slice(0, 16)
-		.replace("T", " ")} UTC`;
+	return new Date(value).toLocaleString(undefined, {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
 }
 
 export function getSubmissionLanguageLabel(submission: SubmissionHistoryItem): string {

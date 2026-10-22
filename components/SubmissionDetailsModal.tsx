@@ -2,6 +2,7 @@
 
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import Modal from "@/components/Modal";
+import StatusBadge from "./StatusBadge";
 import { formatSubmissionDate, formatTestVerdict, getSubmissionLabel, getSubmissionLanguageLabel } from "./submission-formatters";
 
 import styles from "./SubmissionDetailsModal.module.css";
@@ -63,12 +64,9 @@ export default function SubmissionDetailsModal({
 					<section className={styles.detailSection}>
 						<h3>Submission</h3>
 
-						<span
-							className={styles.submissionStatus}
-							data-status={submission.status}
-						>
+						<StatusBadge status={submission.status}>
 							{getSubmissionLabel(submission)}
-						</span>
+						</StatusBadge>
 
 						<dl className={styles.metadata}>
 							<div>
@@ -146,12 +144,9 @@ export default function SubmissionDetailsModal({
 									>
 										<strong>#{result.testCaseOrder}</strong>
 
-										<span
-											className={styles.submissionStatus}
-											data-status={result.status}
-										>
+											<StatusBadge status={result.status}>
 											{formatTestVerdict(result.status)}
-										</span>
+											</StatusBadge>
 
 										<span>
 											{result.executionTimeMs == null

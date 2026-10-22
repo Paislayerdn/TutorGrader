@@ -3,6 +3,7 @@ import styles from "./page.module.css";
 
 import { requireUser } from "@/lib/auth-guards";
 import { SubmissionHistoryRepo } from "@/data/supabase/repositories/SubmissionHistoryRepo";
+import PageFrame from "@/components/PageFrame";
 import HistoryClient from "./HistoryClient";
 
 export default async function HistoryPage() {
@@ -13,8 +14,7 @@ export default async function HistoryPage() {
 
 	return (
 
-		<main className={styles.page}>
-			<section className={styles.content}>
+		<PageFrame pageClassName={styles.page} contentClassName={styles.content}>
 				<header className={styles.header}>
 					<div>
 						<h1>Submission History</h1>
@@ -23,21 +23,10 @@ export default async function HistoryPage() {
 						</p>
 					</div>
 
-					<div className={styles.count}>
-						<strong>
-							{groups.reduce(
-								(total, group) =>
-									total + group.submissions.length,
-								0,
-							)}
-						</strong>
-						<span>submissions</span>
-					</div>
 				</header>
 
 				<HistoryClient groups={groups} />
-			</section>
-		</main>
+		</PageFrame>
 	);
 }
 

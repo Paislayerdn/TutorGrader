@@ -20,6 +20,7 @@ type WandboxResponse = {
 
 const API_URL = "https://wandbox.org/api/compile.json";
 const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_CONCURRENT_EXECUTIONS = 3;
 type PostResult =
 	| { ok: true; value: WandboxResponse }
 	| { ok: false; value: ExecutionResult };
@@ -73,6 +74,34 @@ function createError(
 }
 
 export class WandboxExecutor implements Executor {
+	async executeBatch(requests: ExecutionRequest[]): Promise<ExecutionResult[]> {
+		const results = new Array<ExecutionResult>(requests.length);
+		let nextIndex = 0;
+
+		const worker = async () => {
+			while (true) {
+				const index = nextIndex++;
+				if (index >= requests.length) return;
+
+				try {
+					results[index] = await this.execute(requests[index]);
+				} catch (error) {
+					console.error("Wandbox batch execution failed:", error);
+					results[index] = createError(
+						"PROVIDER_ERROR",
+						"Wandbox could not process this test case.",
+						null,
+					);
+				}
+			}
+		};
+
+		const workerCount = Math.min(MAX_CONCURRENT_EXECUTIONS, requests.length);
+		await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+		return results;
+	}
+
 	private async post(
 		body: Record<string, unknown>,
 		requestFailureMessage: string,

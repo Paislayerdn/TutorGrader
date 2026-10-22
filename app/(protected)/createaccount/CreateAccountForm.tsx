@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { USERNAME_PATTERN, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "@/domain/user/Username";
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
+import PageFrame from "@/components/PageFrame";
 
 import styles from "./page.module.css";
 
@@ -62,8 +63,7 @@ export default function CreateAccountForm({
 	}
 
 	return (
-		<main className={styles.page}>
-			<section className={styles.card}>
+		<PageFrame pageClassName={styles.page} contentClassName={styles.card}>
 				<h1>Create Account</h1>
 
 				<p className={styles.description}>
@@ -141,7 +141,6 @@ export default function CreateAccountForm({
 						{loading ? "Creating..." : "Create account"}
 					</button>
 				</form>
-			</section>
-		</main>
+		</PageFrame>
 	);
 }

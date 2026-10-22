@@ -1,4 +1,4 @@
-import styles from "./ProblemStatusBadge.module.css";
+import StatusBadge from "./StatusBadge";
 
 export type ProblemStatusBadgeValue =
 	| "ACTIVE"
@@ -11,16 +11,9 @@ type Props = {
 };
 
 export default function ProblemStatusBadge({ status }: Props) {
-	const statusClass = {
-		ACTIVE: styles.active,
-		FIXING: styles.fixing,
-		INACTIVE: styles.inactive,
-		DRAFT: styles.draft,
-	}[status];
-
 	return (
-		<span className={`${styles.badge} ${statusClass}`}>
+		<StatusBadge status={status}>
 			{status}
-		</span>
+		</StatusBadge>
 	);
 }

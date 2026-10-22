@@ -1,6 +1,7 @@
 
 import { requireOwner } from "@/lib/auth-guards";
 import { UserRepo } from "@/data/supabase/repositories/UserRepo";
+import PageFrame from "@/components/PageFrame";
 import {
 	SubmissionHistoryRepo,
 	type SubmissionHistoryGroup,
@@ -36,8 +37,7 @@ export default async function QueryHistoryPage({ searchParams }: Props) {
 	}
 
 	return (
-		<main className={styles.page}>
-			<section className={styles.content}>
+		<PageFrame pageClassName={styles.page} contentClassName={styles.content}>
 				<header className={styles.header}>
 					<h1>Query History</h1>
 					<p className={styles.description}>
@@ -81,8 +81,7 @@ export default async function QueryHistoryPage({ searchParams }: Props) {
 						<HistoryClient groups={groups} />
 					</section>
 				)}
-			</section>
-		</main>
+		</PageFrame>
 	);
 }
 

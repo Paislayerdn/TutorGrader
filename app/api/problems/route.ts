@@ -8,12 +8,24 @@ import { StuffRepo, type CreateStuffData } from "@/data/supabase/repositories/St
 import { ProblemDraftInput, ProblemDraftInputError } from "@/domain/problem/ProblemDraftInput";
 import { BUCKET } from "@/domain/stuff/AttachmentRules";
 import { requireApiAdmin, route } from "@/lib/http";
+import { getCurrentVisitor } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 const problemRepo = new ProblemRepo();
 const stuffRepo = new StuffRepo();
 const attachmentStorage = new AttachmentStorage();
+
+export const GET = route(async request => {
+	const visitor = await getCurrentVisitor();
+	const query = new URL(request.url).searchParams.get("q")?.trim().toLowerCase() ?? "";
+	const problems = await problemRepo.findAllForListing(visitor.canManageProblems);
+	const matches = query
+		? problems.filter(problem => problem.name.toLowerCase().includes(query))
+		: problems;
+
+	return NextResponse.json(matches);
+});
 
 export const POST = route(async (request: Request) => {
 	const currentUser = await requireApiAdmin();

@@ -9,6 +9,7 @@ import { SubmissionHistoryRepo } from "@/data/supabase/repositories/SubmissionHi
 import { isUuid } from "@/lib/isUuid";
 
 import ProblemStatusBadge from "@/components/ProblemStatusBadge";
+import PageFrame from "@/components/PageFrame";
 import PublishProblemButton from "./PublishProblemButton";
 import SubmitSolutionButton from "./SubmitSolutionButton";
 import ProblemSubmissions from "./ProblemSubmissions";
@@ -76,14 +77,16 @@ export default async function ProblemDetailsPage({ params }: Props) {
 		: null;
 
 	return (
-		<main className={styles.page}>
-			{user.isAuthenticated && submissionGroup && (
+		<PageFrame
+			pageClassName={styles.page}
+			contentClassName={styles.content}
+			beforeContent={user.isAuthenticated && submissionGroup ? (
 				<SubmissionStatusAutoRefresh
 					active={hasInProgressSubmission}
 					status={submissionGroup.submissions[0]?.status}
 				/>
-			)}
-			<section className={styles.content}>
+			) : null}
+		>
 				<div className={styles.detailsBox}>
 					<header className={styles.header}>
 						<div>
@@ -175,13 +178,6 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						</ul>
 					</section>
 
-					{user.isAuthenticated &&
-						problem.status === ProblemStatus.ACTIVE && (
-							<ProblemSubmissions
-								group={submissionGroup}
-							/>
-						)}
-
 					{canViewAttachments &&
 						version.stuffs.length > 0 && (
 							<section className={styles.section}>
@@ -209,7 +205,13 @@ export default async function ProblemDetailsPage({ params }: Props) {
 							</section>
 						)}
 				</div>
-			</section>
-		</main>
+
+				{user.isAuthenticated &&
+					problem.status === ProblemStatus.ACTIVE && (
+						<ProblemSubmissions
+							group={submissionGroup}
+						/>
+					)}
+		</PageFrame>
 	);
 }

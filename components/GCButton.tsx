@@ -62,11 +62,24 @@ export default function GCButton() {
 			</button>
 
 			{message && (
-				<section className={styles.result} aria-live="polite">
-					<strong>{message}</strong>
+				<aside className={styles.result} role="status" aria-live="polite">
+					<div className={styles.resultHeader}>
+						<strong>{message}</strong>
+						<button
+							type="button"
+							className={styles.closeButton}
+							aria-label="Close garbage collection results"
+							onClick={() => {
+								setMessage("");
+								setResult("");
+							}}
+						>
+							×
+						</button>
+					</div>
 
 					{result && <pre>{result}</pre>}
-				</section>
+				</aside>
 			)}
 		</div>
 	);

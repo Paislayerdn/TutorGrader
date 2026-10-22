@@ -5,7 +5,8 @@ import styles from "./page.module.css";
 import { getCurrentVisitor } from "@/lib/auth";
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import GCButton from "@/components/GCButton";
-import ProblemCard from "./ProblemCard";
+import PageFrame from "@/components/PageFrame";
+import ProblemsClient from "./ProblemsClient";
 
 export default async function ProblemsPage() {
 	const user = await getCurrentVisitor();
@@ -17,12 +18,8 @@ export default async function ProblemsPage() {
 		canManageProblems,
 	);
 
-	const draftProblems = items.filter(item => item.isDraft);
-	const publishedProblems = items.filter(item => !item.isDraft);
-
 	return (
-		<main className={styles.page}>
-			<section className={styles.content}>
+		<PageFrame pageClassName={styles.page} contentClassName={styles.content}>
 				<header className={styles.header}>
 					<h1>Problems</h1>
 
@@ -44,34 +41,7 @@ export default async function ProblemsPage() {
 					Choose a problem to view its statement and submit your solution.
 				</p>
 
-				{canManageProblems && draftProblems.length > 0 && (
-					<section className={styles.section}>
-						<h2>Drafts</h2>
-
-						<div className={styles.list}>
-							{draftProblems.map(problem => (
-								<ProblemCard key={problem.id} problem={problem} canManageProblems={canManageProblems} />
-							))}
-						</div>
-					</section>
-				)}
-
-				<section className={styles.section}>
-					<h2>Published Problems</h2>
-
-					{publishedProblems.length === 0 ? (
-						<p className={styles.empty}>
-							No published problems available.
-						</p>
-					) : (
-						<div className={styles.list}>
-							{publishedProblems.map(problem => (
-								<ProblemCard key={problem.id} problem={problem} canManageProblems={canManageProblems} />
-							))}
-						</div>
-					)}
-				</section>
-			</section>
-		</main>
+				<ProblemsClient items={items} canManageProblems={canManageProblems} />
+		</PageFrame>
 	);
 }

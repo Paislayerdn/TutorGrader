@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
+import StatusBadge from "./StatusBadge";
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import { formatSubmissionDate, getPassedCount, getSubmissionLabel, getSubmissionLanguageLabel } from "./submission-formatters";
 import styles from "./SubmissionList.module.css";
@@ -50,12 +51,9 @@ export default function SubmissionList({ submissions }: Props) {
 						</div>
 
 						<div className={styles.right}>
-							<span
-								className={styles.status}
-								data-status={submission.status}
-							>
+							<StatusBadge status={submission.status}>
 								{getSubmissionLabel(submission)}
-							</span>
+							</StatusBadge>
 
 							{submission.testResults.length > 0 && (
 								<span className={styles.summary}>

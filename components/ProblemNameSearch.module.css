@@ -1,0 +1,65 @@
+.container {
+	width: 100%;
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.label {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.controls {
+	display: flex;
+	gap: 8px;
+}
+
+.input {
+	min-width: 0;
+	flex: 1;
+	padding: 10px 12px;
+	border: 1px solid color-mix(in srgb, var(--foreground) 25%, transparent);
+	border-radius: 8px;
+	background: var(--background);
+	color: var(--foreground);
+	font: inherit;
+}
+
+.input:focus-visible,
+.button:focus-visible {
+	outline: 2px solid var(--foreground);
+	outline-offset: 3px;
+}
+
+.button {
+	padding: 10px 16px;
+	border: 0;
+	border-radius: 8px;
+	background: var(--foreground);
+	color: var(--background);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.button:disabled {
+	cursor: wait;
+	opacity: 0.65;
+}
+
+.error {
+	margin: 8px 0 0;
+	color: #dc2626;
+	font-size: 13px;
+}
+
+@media (max-width: 450px) {
+	.controls {
+		align-items: stretch;
+		flex-direction: column;
+	}
+}

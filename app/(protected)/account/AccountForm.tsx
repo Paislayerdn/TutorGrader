@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { USERNAME_PATTERN, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "@/domain/user/Username";
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
+import PageFrame from "@/components/PageFrame";
 
 import styles from "./page.module.css";
 
@@ -169,8 +170,7 @@ export default function AccountForm({
 				</div>
 			)}
 
-			<main className={styles.page}>
-				<section className={styles.content}>
+			<PageFrame pageClassName={styles.page} contentClassName={styles.content}>
 					<h1>Account</h1>
 
 					<section className={styles.section}>
@@ -380,8 +380,7 @@ export default function AccountForm({
 							Deactivate account
 						</button>
 					</section>
-				</section>
-			</main>
+			</PageFrame>
 
 			{showDeactivateMenu && (
 				<div className={styles.modalOverlay}>

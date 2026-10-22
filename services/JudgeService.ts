@@ -9,6 +9,10 @@ import { ExecutorRegistry } from "@/services/ExecutorRegistry";
 import { OutputComparator } from "@/domain/executor/OutputComparator";
 import type { JudgeVerdict } from "@/domain/executor/JudgeVerdict";
 import { DIAGNOSTIC_MAX_LENGTH } from "@/domain/executor/diagnostics";
+import {
+	OnlineCompilerExecutor,
+	type OnlineCompilerTestResult,
+} from "@/domain/executor/OnlineCompilerExecutor";
 
 const TERMINAL_STATUSES = new Set([
 	"COMPLETED",
@@ -132,18 +136,75 @@ export class JudgeService {
 			throw new Error("Unable to start judging.");
 		}
 
-		// 6. Compile once before executing any test case.
+		// OnlineCompiler compiles and runs visible test cases in one request;
+		// retain those results for the normal per-case persistence below.
+		const onlineCompiler = selection.executorCode === "onlinecompiler"
+			? selection.executor as OnlineCompilerExecutor
+			: null;
+		let onlineTestResults: OnlineCompilerTestResult[] | null = null;
 		let compilation;
 
-		try {
-			compilation = await selection.executor.compile({
+		if (onlineCompiler) {
+			const run = await onlineCompiler.runTests(
+				selection.compilerId,
 				sourceCode,
-				compilerId: selection.compilerId,
-			});
-		} catch (error) {
-			console.error("Compilation provider threw an error:", error);
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
-			return;
+				orderedCases.map(testCase => ({
+					input: testCase.input,
+					expectedOutput: testCase.expectedOutput,
+				})),
+				version.time_limit_ms,
+			);
+
+			if (!run.ok) {
+				console.error("OnlineCompiler test request failed:", run.error);
+				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				return;
+			}
+
+			onlineTestResults = run.tests;
+			const failedCompileTest = onlineTestResults.find(
+				test => test.verdict === "compilation_error",
+			);
+			const compileDiagnostic = run.compileError ??
+				(failedCompileTest
+					? failedCompileTest.error ?? "Compilation failed without diagnostic output."
+					: null);
+
+			if (compileDiagnostic) {
+				compilation = {
+					success: false as const,
+					error: {
+						kind: "COMPILE_ERROR" as const,
+						message: "Compilation failed.",
+						diagnostic: compileDiagnostic,
+						executionTimeMs: null,
+						memoryUsageKb: null,
+					},
+				};
+			} else if (!onlineTestResults[0]) {
+				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				return;
+			} else {
+				compilation = {
+					success: true as const,
+					output: "",
+					stderr: "",
+					exitCode: 0,
+					executionTimeMs: null,
+					memoryUsageKb: null,
+				};
+			}
+		} else {
+			try {
+				compilation = await selection.executor.compile({
+					sourceCode,
+					compilerId: selection.compilerId,
+				});
+			} catch (error) {
+				console.error("Compilation provider threw an error:", error);
+				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				return;
+			}
 		}
 
 		if (!compilation.success) {
@@ -218,10 +279,10 @@ export class JudgeService {
 		}
 
 		// 7. Execute every test case.
-		// The first-testcase gate will be handled as a separate change.
+		// Continue through every test case, even when an earlier case fails.
 		let hasProviderError = false;
 
-		for (const testCase of orderedCases) {
+		for (const [index, testCase] of orderedCases.entries()) {
 			let verdict: JudgeVerdict;
 			let output: string | null = null;
 			let diagnostic: string | null = null;
@@ -229,13 +290,36 @@ export class JudgeService {
 			let memoryUsageKb: number | null = null;
 
 			try {
-				const result = await selection.executor.execute({
-					sourceCode,
-					compilerId: selection.compilerId,
-					stdin: testCase.input,
-					timeLimitMs: version.time_limit_ms,
-					memoryLimitKb: version.memory_limit_kb,
-				});
+				let result;
+				if (onlineCompiler) {
+					const onlineResult = onlineTestResults?.[index];
+					if (!onlineResult) {
+						result = {
+							success: false as const,
+							error: {
+								kind: "PROVIDER_ERROR" as const,
+								message: "OnlineCompiler could not process this test case.",
+								diagnostic: "OnlineCompiler omitted a test result.",
+								executionTimeMs: null,
+								memoryUsageKb: null,
+							},
+						};
+					} else {
+						result = OnlineCompilerExecutor.executionResult(
+							onlineResult,
+							version.time_limit_ms,
+							version.memory_limit_kb,
+						);
+					}
+				} else {
+					result = await selection.executor.execute({
+						sourceCode,
+						compilerId: selection.compilerId,
+						stdin: testCase.input,
+						timeLimitMs: version.time_limit_ms,
+						memoryLimitKb: version.memory_limit_kb,
+					});
+				}
 
 				if (!result.success) {
 					verdict = result.error.kind;

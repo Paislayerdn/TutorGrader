@@ -3,10 +3,12 @@ import { ExecutorRepo } from "@/data/supabase/repositories/ExecutorRepo";
 import type { Executor } from "@/domain/executor/Executor";
 import type { ExecutorSelection } from "@/domain/executor/ExecutorSelection";
 import { WandboxExecutor } from "@/domain/executor/WandboxExecutor";
+import { OnlineCompilerExecutor } from "@/domain/executor/OnlineCompilerExecutor";
 
 export class ExecutorRegistry {
 	private readonly adapters = new Map<string, Executor>([
 		["wandbox", new WandboxExecutor()],
+		["onlinecompiler", new OnlineCompilerExecutor()],
 	]);
 
 	private readonly executorRepo = new ExecutorRepo();

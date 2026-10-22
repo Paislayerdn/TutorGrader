@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
-import { SubmissionRepo } from "@/data/supabase/repositories/SubmissionRepo";
+import { SubmissionInProgressError, SubmissionRepo } from "@/data/supabase/repositories/SubmissionRepo";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
 import { AttachmentStorage } from "@/data/storage/AttachmentStorage";
 import { HttpError, requireApiUser, route } from "@/lib/http";
@@ -73,6 +73,9 @@ export const POST = route(async req => {
 	}
 
 	const language = languageMatch.language;
+	if (await submissionRepo.hasInProgress(user.id, problem.id)) {
+		throw new HttpError(409, "You already have a submission queued or being evaluated for this problem.");
+	}
 
 	const sourceStuffId = randomUUID();
 	const storagePath = `submissions/${user.id}/${sourceStuffId}.${extension}`;
@@ -115,9 +118,20 @@ export const POST = route(async req => {
 			{ status: 201 },
 		);
 	} catch (error) {
-		await stuffRepo.deleteByIds([sourceStuffId]);
+		try {
+			await stuffRepo.deleteByIds([sourceStuffId]);
+		} catch (cleanupError) {
+			console.error("Submission metadata rollback failed:", cleanupError);
+		}
 
-		await attachmentStorage.remove(BUCKET, [storagePath]);
+		try {
+			await attachmentStorage.remove(BUCKET, [storagePath]);
+		} catch (cleanupError) {
+			console.error("Submission source rollback failed:", cleanupError);
+		}
+		if (error instanceof SubmissionInProgressError) {
+			throw new HttpError(409, error.message);
+		}
 
 		throw error;
 	}

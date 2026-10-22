@@ -12,6 +12,8 @@ import ProblemStatusBadge from "@/components/ProblemStatusBadge";
 import PublishProblemButton from "./PublishProblemButton";
 import SubmitSolutionButton from "./SubmitSolutionButton";
 import ProblemSubmissions from "./ProblemSubmissions";
+import ProblemTestCasesButton from "./ProblemTestCasesButton";
+import SubmissionStatusAutoRefresh from "./SubmissionStatusAutoRefresh";
 
 type Props = {
 	params: Promise<{
@@ -54,7 +56,6 @@ export default async function ProblemDetailsPage({ params }: Props) {
 
 	const submissionHistory =
 		user.isAuthenticated &&
-		!isAdmin &&
 		problem.status === ProblemStatus.ACTIVE
 			? await new SubmissionHistoryRepo().findHistory(
 				user.userId!,
@@ -63,9 +64,25 @@ export default async function ProblemDetailsPage({ params }: Props) {
 			: [];
 
 	const submissionGroup = submissionHistory[0] ?? null;
+	const hasInProgressSubmission = Boolean(
+		submissionGroup?.submissions.some(
+			submission =>
+				submission.status === "QUEUING" ||
+				submission.status === "EVALUATING",
+		),
+	);
+	const testCases = isAdmin
+		? await problemRepo.findTestCases(id, version.versionNumber)
+		: null;
 
 	return (
 		<main className={styles.page}>
+			{user.isAuthenticated && submissionGroup && (
+				<SubmissionStatusAutoRefresh
+					active={hasInProgressSubmission}
+					status={submissionGroup.submissions[0]?.status}
+				/>
+			)}
 			<section className={styles.content}>
 				<div className={styles.detailsBox}>
 					<header className={styles.header}>
@@ -79,6 +96,9 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						</div>
 
 						<div className={styles.headerActions}>
+							{testCases && (
+								<ProblemTestCasesButton testCases={testCases} />
+							)}
 							<ProblemStatusBadge
 								status={isDraft ? "DRAFT" : problem.status}
 							/>
@@ -86,6 +106,7 @@ export default async function ProblemDetailsPage({ params }: Props) {
 							{problem.status === ProblemStatus.ACTIVE && (
 								<SubmitSolutionButton
 									problemId={problem.id}
+									hasInProgressSubmission={hasInProgressSubmission}
 									extensions={version.languages.flatMap(
 										language => language.extensions,
 									)}
@@ -154,7 +175,7 @@ export default async function ProblemDetailsPage({ params }: Props) {
 						</ul>
 					</section>
 
-					{!isAdmin &&
+					{user.isAuthenticated &&
 						problem.status === ProblemStatus.ACTIVE && (
 							<ProblemSubmissions
 								group={submissionGroup}

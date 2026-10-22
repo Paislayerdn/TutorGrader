@@ -37,7 +37,7 @@ export default async function EditProblemPage({ params }: Props) {
 	}
 	let testCases;
 	try {
-		testCases = await problemRepo.findDraftTestCases(id, version.versionNumber);
+		testCases = await problemRepo.findTestCases(id, version.versionNumber);
 	} catch (error) {
 		console.error("Unable to load draft test cases:", error);
 		notFound();

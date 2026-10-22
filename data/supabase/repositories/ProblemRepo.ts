@@ -158,7 +158,7 @@ export class ProblemRepo {
 		return draft;
 	}
 
-	async findDraftTestCases(problemId: string, versionNumber: number): Promise<{
+	async findTestCases(problemId: string, versionNumber: number): Promise<{
 		input: string;
 		expectedOutput: string;
 	}[]> {

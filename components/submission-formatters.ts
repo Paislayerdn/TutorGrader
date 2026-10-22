@@ -7,11 +7,21 @@ export function formatSubmissionDate(value: string): string {
 		.replace("T", " ")} UTC`;
 }
 
+export function getSubmissionLanguageLabel(submission: SubmissionHistoryItem): string {
+	return submission.compilerId
+		? `${submission.languageName} · ${submission.compilerId}`
+		: submission.languageName;
+}
+
 export function getSubmissionLabel(submission: SubmissionHistoryItem): string {
-	return submission.testResults.length > 0 &&
-		submission.testResults.every(result => result.status === "PASS")
-		? "Complete"
-		: "Incomplete";
+	switch (submission.status) {
+		case "QUEUING": return "Queuing";
+		case "EVALUATING": return "Evaluating";
+		case "COMPLETED": return "Complete";
+		case "INCOMPLETE": return "Incomplete";
+		case "ERROR": return "Error";
+		default: return "Error";
+	}
 }
 
 export function getPassedCount(submission: SubmissionHistoryItem): number {

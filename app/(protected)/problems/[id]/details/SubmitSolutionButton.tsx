@@ -11,11 +11,13 @@ import styles from "./SubmitSolutionButton.module.css";
 type Props = {
 	problemId: string;
 	extensions: string[];
+	hasInProgressSubmission: boolean;
 };
 
 export default function SubmitSolutionButton({
 	problemId,
 	extensions,
+	hasInProgressSubmission,
 }: Props) {
 	const router = useRouter();
 
@@ -74,10 +76,19 @@ export default function SubmitSolutionButton({
 			<button
 				type="button"
 				className={styles.submitButton}
+				disabled={hasInProgressSubmission}
+				title={hasInProgressSubmission
+					? "Wait for your queued or evaluating submission to finish."
+					: undefined}
 				onClick={open}
 			>
-				Submit Solution
+				{hasInProgressSubmission ? "Submission in Progress" : "Submit Solution"}
 			</button>
+			{hasInProgressSubmission && (
+				<p className={styles.inProgressMessage} role="status">
+					Wait for your queued or evaluating submission to finish.
+				</p>
+			)}
 
 			{isOpen && (
 				<Modal

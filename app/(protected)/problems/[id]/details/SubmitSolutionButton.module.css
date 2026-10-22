@@ -21,6 +21,24 @@
 	);
 }
 
+.submitButton:disabled {
+	border-color: var(--border);
+	color: var(--muted-foreground);
+	cursor: not-allowed;
+}
+
+.submitButton:disabled:hover {
+	background: var(--background);
+}
+
+.inProgressMessage {
+	max-width: 240px;
+	margin: 0;
+	font-size: 0.8rem;
+	line-height: 1.4;
+	opacity: 0.75;
+}
+
 .overlay {
 	position: fixed;
 	inset: 0;

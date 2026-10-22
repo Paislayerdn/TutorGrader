@@ -242,6 +242,39 @@
 	color: #dc2626;
 }
 
+.submissionStatus[data-status="QUEUING"],
+.submissionStatus[data-status="EVALUATING"] {
+	border-color: #64748b;
+	background: color-mix(in srgb, #64748b 12%, var(--background));
+	color: #64748b;
+}
+
+.submissionStatus[data-status="QUEUING"]::after,
+.submissionStatus[data-status="EVALUATING"]::after {
+	content: ".";
+	animation: status-dots 1.2s steps(1, end) infinite;
+}
+
+@keyframes status-dots {
+	0%, 33% { content: "."; }
+	34%, 66% { content: ".."; }
+	67%, 100% { content: "..."; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.submissionStatus[data-status="QUEUING"]::after,
+	.submissionStatus[data-status="EVALUATING"]::after {
+		animation: none;
+		content: "...";
+	}
+}
+
+.submissionStatus[data-status="ERROR"] {
+	border-color: #dc2626;
+	background: color-mix(in srgb, #dc2626 10%, var(--background));
+	color: #dc2626;
+}
+
 .submissionStatus[data-status="PASS"] {
 	border-color: #16a34a;
 	background: color-mix(

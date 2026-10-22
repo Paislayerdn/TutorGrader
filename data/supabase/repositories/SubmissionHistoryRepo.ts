@@ -1,10 +1,12 @@
 
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { getStuffDisplayName } from "@/domain/stuff/Stuff";
+import type { SubmissionStatus } from "@/domain/submission/SubmissionStatus";
+import type { TestVerdict } from "@/domain/submission/TestVerdict";
 
 export type SubmissionHistoryTestResult = {
 	testCaseOrder: number;
-	status: string;
+	status: TestVerdict;
 	executionTimeMs: number | null;
 	memoryUsageKb: number | null;
 };
@@ -18,7 +20,8 @@ export type SubmissionHistoryItem = {
 	problemDescription: string | null;
 	versionNumber: number;
 	languageName: string;
-	status: string;
+	compilerId: string | null;
+	status: SubmissionStatus;
 	submittedAt: string;
 	sourceFilename: string;
 	sourceStuffId: string;
@@ -40,7 +43,8 @@ type SubmissionRow = {
 	problem_id: string;
 	version_number: number;
 	language_id: number;
-	status: string;
+	compiler_id: string | null;
+	status: SubmissionStatus;
 	submitted_at: string;
 	source_stuff_id: string;
 };
@@ -76,7 +80,7 @@ type StuffRow = {
 type TestResultRow = {
 	submission_id: string;
 	test_case_order: number;
-	status: string;
+	status: TestVerdict;
 	execution_time_ms: number | null;
 	memory_usage_kb: number | null;
 };
@@ -94,7 +98,7 @@ export class SubmissionHistoryRepo {
 		let query = supabaseAdmin
 			.from("submission")
 			.select(
-				"id, user_id, problem_id, version_number, language_id, status, submitted_at, source_stuff_id",
+				"id, user_id, problem_id, version_number, language_id, compiler_id, status, submitted_at, source_stuff_id",
 			)
 			.order("submitted_at", { ascending: false })
 			.limit(500);
@@ -285,6 +289,7 @@ export class SubmissionHistoryRepo {
 				problemDescription: submittedVersion?.description ?? null,
 				versionNumber: row.version_number,
 				languageName: languageById.get(row.language_id) ?? "Unknown",
+				compilerId: row.compiler_id,
 				status: row.status,
 				submittedAt: row.submitted_at,
 				sourceFilename,

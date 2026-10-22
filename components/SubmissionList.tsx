@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
-import { formatSubmissionDate, getPassedCount, getSubmissionLabel } from "./submission-formatters";
+import { formatSubmissionDate, getPassedCount, getSubmissionLabel, getSubmissionLanguageLabel } from "./submission-formatters";
 import styles from "./SubmissionList.module.css";
 
 type Props = {
@@ -43,7 +43,7 @@ export default function SubmissionList({ submissions }: Props) {
 							</strong>
 
 							<span className={styles.meta}>
-								{submission.languageName}
+								{getSubmissionLanguageLabel(submission)}
 								{" · "}
 								{formatSubmissionDate(submission.submittedAt)}
 							</span>
@@ -52,11 +52,7 @@ export default function SubmissionList({ submissions }: Props) {
 						<div className={styles.right}>
 							<span
 								className={styles.status}
-								data-status={
-									getSubmissionLabel(submission) === "Complete"
-										? "COMPLETED"
-										: "INCOMPLETE"
-								}
+								data-status={submission.status}
 							>
 								{getSubmissionLabel(submission)}
 							</span>

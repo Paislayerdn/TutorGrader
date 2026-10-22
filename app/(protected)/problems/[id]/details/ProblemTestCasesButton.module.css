@@ -1,0 +1,125 @@
+.openButton {
+	padding: 0.6rem 1rem;
+	border: 1px solid var(--border);
+	border-radius: 0.4rem;
+	background: var(--background);
+	color: var(--foreground);
+	font: inherit;
+	font-size: 0.9rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.openButton:hover {
+	opacity: 0.8;
+}
+
+.overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	background: rgb(0 0 0 / 0.55);
+}
+
+.modal {
+	display: flex;
+	width: min(760px, 100%);
+	max-height: min(90vh, 900px);
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	background: var(--background);
+	box-shadow: 0 20px 70px rgb(0 0 0 / 0.25);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 22px 24px;
+	border-bottom: 1px solid var(--border);
+}
+
+.header h2 {
+	margin: 0;
+	font-size: 1.35rem;
+}
+
+.closeButton {
+	display: grid;
+	width: 36px;
+	height: 36px;
+	flex-shrink: 0;
+	place-items: center;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: transparent;
+	color: inherit;
+	font-size: 1.5rem;
+	cursor: pointer;
+}
+
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 22px 24px;
+	overflow-y: auto;
+}
+
+.testCase {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	min-width: 0;
+	padding: 18px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--surface);
+}
+
+.testCase h3 {
+	margin: 0;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--border);
+}
+
+.testCaseGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+}
+
+.testCaseGrid > div {
+	min-width: 0;
+}
+
+.testCaseGrid strong {
+	display: block;
+	margin-bottom: 0.5rem;
+}
+
+.testCaseGrid pre {
+	margin: 0;
+	padding: 0.75rem;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	border: 1px solid var(--border);
+	border-radius: 0.4rem;
+	background: var(--background);
+	font-family: monospace;
+	line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+	.testCaseGrid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

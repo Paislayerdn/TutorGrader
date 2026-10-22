@@ -8,17 +8,17 @@ import {
 import { ExecutorRegistry } from "@/services/ExecutorRegistry";
 import { OutputComparator } from "@/domain/executor/OutputComparator";
 import type { JudgeVerdict } from "@/domain/executor/JudgeVerdict";
+import { SubmissionStatus } from "@/domain/submission/SubmissionStatus";
 import { DIAGNOSTIC_MAX_LENGTH } from "@/domain/executor/diagnostics";
 import {
 	OnlineCompilerExecutor,
 	type OnlineCompilerTestResult,
 } from "@/domain/executor/OnlineCompilerExecutor";
 
-const TERMINAL_STATUSES = new Set([
-	"COMPLETED",
-	"COMPILE_ERROR",
-	"REJECTED",
-	"PROVIDER_ERROR",
+const TERMINAL_STATUSES = new Set<string>([
+	SubmissionStatus.COMPLETED,
+	SubmissionStatus.INCOMPLETE,
+	SubmissionStatus.ERROR,
 ]);
 
 
@@ -32,6 +32,13 @@ export class JudgeService {
 			await this.judgeRepo.findSubmission(submissionId);
 
 		if (TERMINAL_STATUSES.has(submission.status)) return;
+		if (!(await this.judgeRepo.updateSubmissionStatus(
+			submissionId,
+			SubmissionStatus.EVALUATING,
+			null,
+		))) {
+			throw new Error("Unable to start submission evaluation.");
+		}
 
 		// 2. Validate the problem and its published version.
 		const problem = await this.judgeRepo.findProblem(
@@ -39,7 +46,7 @@ export class JudgeService {
 		);
 
 		if (!problem) {
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
@@ -47,7 +54,7 @@ export class JudgeService {
 			problem.status !== "ACTIVE" ||
 			problem.current_version_number !== submission.version_number
 		) {
-			await this.failSubmission(submissionId, "REJECTED");
+			await this.failSubmission(submissionId, "This submission is no longer eligible for judging.");
 			return;
 		}
 
@@ -58,12 +65,12 @@ export class JudgeService {
 			);
 
 		if (!version) {
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
 		if (version.status !== "PUBLISHED") {
-			await this.failSubmission(submissionId, "REJECTED");
+			await this.failSubmission(submissionId, "This submission is no longer eligible for judging.");
 			return;
 		}
 
@@ -73,7 +80,7 @@ export class JudgeService {
 		);
 
 		if (!stuff) {
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
@@ -83,7 +90,7 @@ export class JudgeService {
 		);
 
 		if (!sourceFile) {
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
@@ -94,7 +101,7 @@ export class JudgeService {
 				await sourceFile.arrayBuffer(),
 			);
 		} catch {
-			await this.failSubmission(submissionId, "REJECTED");
+			await this.failSubmission(submissionId, "The submitted source file is not valid UTF-8.");
 			return;
 		}
 
@@ -106,7 +113,7 @@ export class JudgeService {
 			);
 
 		if (!orderedCases) {
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
@@ -119,7 +126,7 @@ export class JudgeService {
 			);
 		} catch (error) {
 			console.error("No execution provider available:", error);
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
@@ -157,7 +164,7 @@ export class JudgeService {
 
 			if (!run.ok) {
 				console.error("OnlineCompiler test request failed:", run.error);
-				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				await this.failSubmission(submissionId);
 				return;
 			}
 
@@ -182,7 +189,7 @@ export class JudgeService {
 					},
 				};
 			} else if (!onlineTestResults[0]) {
-				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				await this.failSubmission(submissionId);
 				return;
 			} else {
 				compilation = {
@@ -202,7 +209,7 @@ export class JudgeService {
 				});
 			} catch (error) {
 				console.error("Compilation provider threw an error:", error);
-				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				await this.failSubmission(submissionId);
 				return;
 			}
 		}
@@ -213,7 +220,7 @@ export class JudgeService {
 					"Compilation provider failed:",
 					compilation.error,
 				);
-				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				await this.failSubmission(submissionId);
 				return;
 			}
 
@@ -227,7 +234,7 @@ export class JudgeService {
 				await this.judgeRepo.clearTestResults(submissionId);
 
 			if (!resultsCleared) {
-				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				await this.failSubmission(submissionId);
 				return;
 			}
 
@@ -238,13 +245,13 @@ export class JudgeService {
 				);
 
 			if (!compileErrorSaved) {
-				await this.failSubmission(submissionId, "PROVIDER_ERROR");
+				await this.failSubmission(submissionId);
 				return;
 			}
 
 			await this.finishSubmission(
 				submissionId,
-				"COMPILE_ERROR",
+				SubmissionStatus.ERROR,
 				null,
 			);
 			return;
@@ -255,7 +262,7 @@ export class JudgeService {
 			await this.judgeRepo.clearCompileError(submissionId);
 
 		if (!compileErrorCleared) {
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
@@ -263,14 +270,14 @@ export class JudgeService {
 			await this.judgeRepo.clearTestResults(submissionId);
 
 		if (!oldResultsCleared) {
-			await this.failSubmission(submissionId, "PROVIDER_ERROR");
+			await this.failSubmission(submissionId);
 			return;
 		}
 
 		const testingStatusSaved =
 			await this.judgeRepo.updateSubmissionStatus(
 				submissionId,
-				"TESTING",
+				SubmissionStatus.EVALUATING,
 				null,
 			);
 
@@ -280,7 +287,8 @@ export class JudgeService {
 
 		// 7. Execute every test case.
 		// Continue through every test case, even when an earlier case fails.
-		let hasProviderError = false;
+		let hasEvaluationError = false;
+		let hasIncompleteResult = false;
 
 		for (const [index, testCase] of orderedCases.entries()) {
 			let verdict: JudgeVerdict;
@@ -330,8 +338,10 @@ export class JudgeService {
 					executionTimeMs = result.error.executionTimeMs;
 					memoryUsageKb = result.error.memoryUsageKb;
 
-					if (verdict === "PROVIDER_ERROR") {
-						hasProviderError = true;
+					if (verdict === "TIME_LIMIT" || verdict === "MEMORY_LIMIT") {
+						hasIncompleteResult = true;
+					} else {
+						hasEvaluationError = true;
 					}
 				} else {
 					output = result.output;
@@ -355,7 +365,7 @@ export class JudgeService {
 
 				verdict = "PROVIDER_ERROR";
 				diagnostic = "The execution provider failed unexpectedly.";
-				hasProviderError = true;
+				hasEvaluationError = true;
 			}
 
 			const resultSaved = await this.judgeRepo.saveTestResult({
@@ -372,15 +382,19 @@ export class JudgeService {
 
 			if (!resultSaved) {
 				// Continue attempting the remaining tests, as before.
-				hasProviderError = true;
+				hasEvaluationError = true;
 			}
 		}
 
 		// 8. Finalize after every test has been attempted.
 		await this.finishSubmission(
 			submissionId,
-			hasProviderError ? "PROVIDER_ERROR" : "COMPLETED",
-			hasProviderError
+			hasEvaluationError
+				? SubmissionStatus.ERROR
+				: hasIncompleteResult
+					? SubmissionStatus.INCOMPLETE
+					: SubmissionStatus.COMPLETED,
+			hasEvaluationError
 				? "One or more test cases could not be processed reliably."
 				: null,
 		);
@@ -388,7 +402,7 @@ export class JudgeService {
 
 	private async finishSubmission(
 		submissionId: string,
-		status: string,
+		status: SubmissionStatus.COMPLETED | SubmissionStatus.INCOMPLETE | SubmissionStatus.ERROR,
 		diagnostic: string | null,
 	): Promise<void> {
 		const updated = await this.judgeRepo.updateSubmissionStatus(
@@ -404,14 +418,12 @@ export class JudgeService {
 
 	private async failSubmission(
 		submissionId: string,
-		status: "REJECTED" | "PROVIDER_ERROR",
+		diagnostic = "The judging system could not process this submission.",
 	): Promise<void> {
 		await this.finishSubmission(
 			submissionId,
-			status,
-			status === "REJECTED"
-				? "This submission is no longer eligible for judging."
-				: "The judging system could not process this submission.",
+			SubmissionStatus.ERROR,
+			diagnostic,
 		);
 	}
 

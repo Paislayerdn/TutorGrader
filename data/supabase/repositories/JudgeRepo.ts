@@ -1,6 +1,7 @@
 
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
+import type { SubmissionStatus } from "@/domain/submission/SubmissionStatus";
 
 export type JudgeSubmissionRow = {
 	id: string;
@@ -246,7 +247,7 @@ export class JudgeRepo {
 				executor_id: selection.executorId,
 				compiler_id: selection.compilerId,
 				runtime_version: selection.runtimeVersion,
-				status: "COMPILING",
+				status: "EVALUATING",
 				diagnostic: null,
 			})
 			.eq("id", submissionId);
@@ -347,7 +348,7 @@ export class JudgeRepo {
 
 	async updateSubmissionStatus(
 		submissionId: string,
-		status: string,
+		status: SubmissionStatus,
 		diagnostic: string | null,
 	): Promise<boolean> {
 		const { error } = await supabaseAdmin

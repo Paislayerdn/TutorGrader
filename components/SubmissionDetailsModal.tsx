@@ -2,7 +2,7 @@
 
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import Modal from "@/components/Modal";
-import { formatSubmissionDate, formatTestVerdict, getSubmissionLabel } from "./submission-formatters";
+import { formatSubmissionDate, formatTestVerdict, getSubmissionLabel, getSubmissionLanguageLabel } from "./submission-formatters";
 
 import styles from "./SubmissionDetailsModal.module.css";
 
@@ -65,11 +65,7 @@ export default function SubmissionDetailsModal({
 
 						<span
 							className={styles.submissionStatus}
-							data-status={
-								getSubmissionLabel(submission) === "Complete"
-									? "COMPLETED"
-									: "INCOMPLETE"
-							}
+							data-status={submission.status}
 						>
 							{getSubmissionLabel(submission)}
 						</span>
@@ -77,7 +73,7 @@ export default function SubmissionDetailsModal({
 						<dl className={styles.metadata}>
 							<div>
 								<dt>Language</dt>
-								<dd>{submission.languageName}</dd>
+								<dd>{getSubmissionLanguageLabel(submission)}</dd>
 							</div>
 
 							<div>

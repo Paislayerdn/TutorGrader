@@ -7,8 +7,8 @@ import { Role } from "./Role";
 
 export class User extends Visitor {
 	constructor(
-		public id: string,
-		public data: UserData,
+		public readonly id: string,
+		public readonly data: UserData,
 		public createdById: string,
 	) {
 		super();

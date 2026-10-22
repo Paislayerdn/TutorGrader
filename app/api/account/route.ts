@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { readJsonObject, route } from "@/lib/http";
+import { HttpError, readJsonObject, route } from "@/lib/http";
 import { handleUsername } from "./routeUsername";
 import { handlePassword } from "./routePassword";
 import { handleDeactivate } from "./routeDeactivate";
@@ -8,12 +8,12 @@ import { handleDeactivate } from "./routeDeactivate";
 export const runtime = "nodejs";
 
 export const PATCH = route(async (request: Request) => {
-	const body = await readJsonObject(request) as {
-		action?: string;
-		username?: string;
-		currentPassword?: string;
-		newPassword?: string;
-	};
+	const body = await readJsonObject(request);
+	for (const key of ["action", "username", "currentPassword", "newPassword"] as const) {
+		if (body[key] !== undefined && typeof body[key] !== "string") {
+			throw new HttpError(400, "Invalid request body.");
+		}
+	}
 
 	switch (body.action) {
 		case "username":
@@ -31,9 +31,10 @@ export const PATCH = route(async (request: Request) => {
 });
 
 export const POST = route(async (request: Request) => {
-	const body = await readJsonObject(request) as {
-		action?: string;
-	};
+	const body = await readJsonObject(request);
+	if (body.action !== undefined && typeof body.action !== "string") {
+		throw new HttpError(400, "Invalid request body.");
+	}
 
 	if (body.action === "deactivate") {
 		return handleDeactivate();

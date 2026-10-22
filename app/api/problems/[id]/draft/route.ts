@@ -97,7 +97,8 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 			const file = files[i];
 			const filename = filenames[i];
 			const fileId = randomUUID();
-			const storagePath = `${user.id}/${fileId}/${filename}`;
+			const extension = extname(filename).slice(1).toLowerCase();
+			const storagePath = `${user.id}/${fileId}.${extension}`;
 
 			await attachmentStorage.upload(
 				BUCKET,
@@ -115,6 +116,7 @@ export const PUT = route<Props>(async (request: Request, { params }) => {
 				bucket: BUCKET,
 				storagePath,
 				uploadedById: user.id,
+				originalFilename: filename,
 			});
 		}
 

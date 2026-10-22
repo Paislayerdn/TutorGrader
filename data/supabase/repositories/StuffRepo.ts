@@ -86,7 +86,11 @@ export class StuffRepo {
 			originalFilename: row.original_filename,
 			createdAt: new Date(row.created_at),
 		};
-		return new Stuff(stuffData);
+		return new Stuff(
+			stuffData.id, stuffData.fileExtension, stuffData.bucket,
+			stuffData.storagePath, stuffData.uploadedById,
+			stuffData.originalFilename, stuffData.createdAt,
+		);
 	}
 
 	async createMany(stuffs: CreateStuffData[]): Promise<void> {

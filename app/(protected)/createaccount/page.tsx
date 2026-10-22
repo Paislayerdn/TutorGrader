@@ -6,7 +6,7 @@ import CreateAccountForm from "./CreateAccountForm";
 export default async function CreateAccountPage() {
 	const user = await getCurrentVisitor();
 
-	if (!user.canManageProblems) redirect("/dashboard");
+	if (!user.canCreateAccounts) redirect("/dashboard");
 
 	const creatorRole = user.creatableRoles.includes("ADMIN") ? "OWNER" : "ADMIN";
 

@@ -5,6 +5,7 @@ import { PasswordHasher } from "@/data/security/PasswordHasher";
 import { PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
 import { readJsonObject } from "@/lib/http";
 import { createSession } from "@/lib/session";
+import { Username } from "@/domain/user/Username";
 
 export const runtime = "nodejs";
 const userRepo = new UserRepo();
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
 				{ status: 400 }
 			);
 		}
-		if (!/^[A-Za-z0-9_]+$/.test(username)) {
+		if (!Username.parse(username)) {
 			return NextResponse.json(
 				{ error: "Invalid username or password." },
 				{ status: 401 },

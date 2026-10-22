@@ -5,6 +5,9 @@ import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
 import { isUuid } from "@/lib/isUuid";
 
+export const runtime = "nodejs";
+const problemRepo = new ProblemRepo();
+
 type Props = {
 	params: Promise<{ id: string }>;
 };
@@ -21,7 +24,6 @@ export const PATCH = route<Props>(async (request: Request, { params }) => {
 		);
 	}
 
-	const problemRepo = new ProblemRepo();
 	const problem = await problemRepo.findStatusInfo(id);
 
 	if (!problem) {

@@ -26,7 +26,6 @@ export default function ThemeToggle() {
 			root.dataset.theme === "dark" ? "light" : "dark";
 
 		root.dataset.theme = nextTheme;
-		localStorage.setItem("theme", nextTheme);
 		document.cookie = `theme=${nextTheme}; Path=/; Max-Age=31536000; SameSite=Lax`;
 	}
 

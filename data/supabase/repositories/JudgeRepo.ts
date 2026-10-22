@@ -67,14 +67,13 @@ export class JudgeRepo {
 	}
 
 	async recordJobFailure(id: number, workerId: string, exhausted: boolean, retryDelayMs: number, message: string): Promise<Error | null> {
-		const now = Date.now();
-		const { error } = await supabaseAdmin.from("submission_judge_queue").update({
-			status: exhausted ? "FAILED" : "QUEUED",
-			available_at: new Date(now + retryDelayMs).toISOString(),
-			locked_until: null, locked_by: null, last_error: message,
-			finished_at: exhausted ? new Date(now).toISOString() : null,
-			updated_at: new Date(now).toISOString(),
-		}).eq("id", id).eq("locked_by", workerId).eq("status", "RUNNING");
+		const { error } = await supabaseAdmin.rpc("record_submission_judge_job_failure", {
+			p_job_id: id,
+			p_worker_id: workerId,
+			p_exhausted: exhausted,
+			p_retry_delay_ms: retryDelayMs,
+			p_error: message,
+		});
 		return error;
 	}
 	async findSubmission(

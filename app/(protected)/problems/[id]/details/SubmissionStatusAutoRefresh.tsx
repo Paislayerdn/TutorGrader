@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Props = {
 	active: boolean;
-	status: string | undefined;
 };
 
-export default function SubmissionStatusAutoRefresh({ active, status }: Props) {
+export default function SubmissionStatusAutoRefresh({ active }: Props) {
 	const router = useRouter();
-	const previousStatus = useRef(status);
 
 	useEffect(() => {
 		if (!active) {
@@ -25,16 +23,5 @@ export default function SubmissionStatusAutoRefresh({ active, status }: Props) {
 
 		return () => window.clearInterval(intervalId);
 	}, [active, router]);
-
-	useEffect(() => {
-		if (previousStatus.current !== status && previousStatus.current !== undefined) {
-			previousStatus.current = status;
-			window.location.reload();
-			return;
-		}
-
-		previousStatus.current = status;
-	}, [status]);
-
 	return null;
 }

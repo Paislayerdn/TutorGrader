@@ -83,7 +83,6 @@ export default async function ProblemDetailsPage({ params }: Props) {
 			beforeContent={user.isAuthenticated && submissionGroup ? (
 				<SubmissionStatusAutoRefresh
 					active={hasInProgressSubmission}
-					status={submissionGroup.submissions[0]?.status}
 				/>
 			) : null}
 		>

@@ -1,21 +1,11 @@
-# TutorGrader Phase 0 baseline
+# Supabase database
 
-This is a current-state baseline extracted from the live Supabase project on 2026-10-19.
-
-Included:
-- TutorGrader-owned PostgreSQL enums, tables, constraints, indexes, functions, triggers, views, RLS policies, grants.
-- The canonical-content GC Edge Function source.
-- A note for the `problem-files` private Storage bucket and the judge pg_cron job.
-
-Not included:
-- Application data.
-- Supabase-managed schemas/tables.
-- Secrets.
-- Historical migrations.
-- The temporary Phase 0 export tables/migrations.
+Apply every SQL file in 'migrations/' in filename order to a new project. The first migration is the TutorGrader baseline schema; later migrations add executor priority, submission status semantics and queue behavior, and exhausted-job finalization.
 
 Deployment prerequisites:
-- Supabase/PostgreSQL with the required platform facilities available.
-- `tutorgrader_backend` must be provisioned separately.
-- The `problem-files` private Storage bucket must be provisioned.
-- The `tutorgrader_judge_worker_secret` Vault secret and judge cron job must be configured for the target environment.
+
+- Provision the 'tutorgrader_backend' database role and private 'problem-files' Storage bucket.
+- Configure the 'tutorgrader_judge_worker_secret' Vault secret and the judge 'pg_cron' job for the target environment.
+- Review the baseline migration's cron example before use: its example command contains a production URL that must be replaced with the target deployment URL.
+
+The application connects through the Supabase service role and relies on server-side authorization checks. Never expose the service-role key in client code.

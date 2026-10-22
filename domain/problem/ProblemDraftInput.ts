@@ -64,14 +64,18 @@ export class ProblemDraftInput {
 
 		const name = typeof body.name === "string" ? body.name.trim() : "";
 		if (!name) throw new ProblemDraftInputError(400, "Problem name is required.");
+		if (name.length > 200) throw new ProblemDraftInputError(400, "Problem name must not exceed 200 characters.");
+		if (typeof body.description === "string" && body.description.length > 20_000) {
+			throw new ProblemDraftInputError(400, "Problem description must not exceed 20,000 characters.");
+		}
 
 		const timeLimitMs = body.timeLimitMs;
 		const memoryLimitKb = body.memoryLimitKb;
 		if (
-			typeof timeLimitMs !== "number" || !Number.isSafeInteger(timeLimitMs) || timeLimitMs < 0 ||
-			typeof memoryLimitKb !== "number" || !Number.isSafeInteger(memoryLimitKb) || memoryLimitKb < 0
+			typeof timeLimitMs !== "number" || !Number.isSafeInteger(timeLimitMs) || timeLimitMs < 1 || timeLimitMs > 60_000 ||
+			typeof memoryLimitKb !== "number" || !Number.isSafeInteger(memoryLimitKb) || memoryLimitKb < 1 || memoryLimitKb > 1_048_576
 		) {
-			throw new ProblemDraftInputError(400, "Time and memory limits must be non-negative integers.");
+			throw new ProblemDraftInputError(400, "Time must be 1–60,000 ms and memory must be 1–1,048,576 KB.");
 		}
 
 		const outputComparison = body.outputComparison;
@@ -89,9 +93,10 @@ export class ProblemDraftInput {
 
 		const rawTestCases = body.testCases;
 		if (
-			!Array.isArray(rawTestCases) || rawTestCases.length === 0 ||
+			!Array.isArray(rawTestCases) || rawTestCases.length === 0 || rawTestCases.length > 100 ||
 			!rawTestCases.every(value =>
-				isRecord(value) && typeof value.input === "string" && typeof value.expectedOutput === "string",
+				isRecord(value) && typeof value.input === "string" && value.input.length <= 100_000 &&
+				typeof value.expectedOutput === "string" && value.expectedOutput.length <= 100_000,
 			)
 		) {
 			throw new ProblemDraftInputError(400, "At least one valid test case is required.");

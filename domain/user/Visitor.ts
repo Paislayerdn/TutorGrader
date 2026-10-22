@@ -9,6 +9,7 @@ export class Visitor {
 	public canSubmitTo(_problem: Problem): boolean { void _problem; return false; }
 	public canReadSourceOf(_ownerUserId: string): boolean { void _ownerUserId; return false; }
 	public get canManageProblems(): boolean { return false; }
+	public get canCreateAccounts(): boolean { return this.creatableRoles.length > 0; }
 	public get userId(): string | null { return null; }
 	public canCreateAccountWithRole(_role: Role): boolean { void _role; return false; }
 	public get canRunGarbageCollection(): boolean { return false; }

@@ -11,7 +11,7 @@ type NavbarProps = {
 
 export default function Navbar({ user }: NavbarProps) {
 	const isUser = user.isAuthenticated;
-	const canCreateAccount = user.canManageProblems;
+	const canCreateAccount = user.canCreateAccounts;
 	const isOwner = user.canViewQueryHistory;
 
 	return (

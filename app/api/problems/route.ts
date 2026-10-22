@@ -7,8 +7,7 @@ import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { StuffRepo, type CreateStuffData } from "@/data/supabase/repositories/StuffRepo";
 import { ProblemDraftInput, ProblemDraftInputError } from "@/domain/problem/ProblemDraftInput";
 import { BUCKET } from "@/domain/stuff/AttachmentRules";
-import { requireApiAdmin, route } from "@/lib/http";
-import { getCurrentVisitor } from "@/lib/auth";
+import { requireApiAdmin, requireApiUser, route } from "@/lib/http";
 
 export const runtime = "nodejs";
 
@@ -17,7 +16,7 @@ const stuffRepo = new StuffRepo();
 const attachmentStorage = new AttachmentStorage();
 
 export const GET = route(async request => {
-	const visitor = await getCurrentVisitor();
+	const visitor = await requireApiUser();
 	const query = new URL(request.url).searchParams.get("q")?.trim().toLowerCase() ?? "";
 	const problems = await problemRepo.findAllForListing(visitor.canManageProblems);
 	const matches = query
@@ -50,7 +49,8 @@ export const POST = route(async (request: Request) => {
 			const file = input.files[i];
 			const filename = input.filenames[i];
 			const id = randomUUID();
-			const storagePath = `${currentUser.id}/${id}/${filename}`;
+			const extension = extname(filename).slice(1).toLowerCase();
+			const storagePath = `${currentUser.id}/${id}.${extension}`;
 
 			await attachmentStorage.upload(
 				BUCKET,
@@ -62,10 +62,11 @@ export const POST = route(async (request: Request) => {
 			uploadedPaths.push(storagePath);
 			stuffRecords.push({
 				id,
-				fileExtension: extname(filename).slice(1).toLowerCase(),
+				fileExtension: extension,
 				bucket: BUCKET,
 				storagePath,
 				uploadedById: currentUser.id,
+				originalFilename: filename,
 			});
 		}
 

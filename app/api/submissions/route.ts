@@ -1,8 +1,9 @@
 import { randomUUID } from "crypto";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { ProblemStatus } from "@/domain/problem/ProblemStatus";
+import { ProblemVersionStatus } from "@/domain/problem/version/ProblemVersionStatus";
 import { SubmissionInProgressError, SubmissionRepo } from "@/data/supabase/repositories/SubmissionRepo";
 import { SubmissionHistoryRepo } from "@/data/supabase/repositories/SubmissionHistoryRepo";
 import { StuffRepo } from "@/data/supabase/repositories/StuffRepo";
@@ -61,7 +62,7 @@ export const POST = route(async req => {
 
 	const version = problem.currentVersion;
 
-	if (!user.canSubmitTo(problem) || !version || version.status !== "PUBLISHED") {
+	if (!user.canSubmitTo(problem) || !version || version.status !== ProblemVersionStatus.PUBLISHED) {
 		throw new HttpError(400, "Problem version is not available.");
 	}
 
@@ -121,6 +122,21 @@ export const POST = route(async req => {
 			languageId: language.id,
 			sourceStuffId,
 		});
+
+		const workerSecret = process.env.JUDGE_WORKER_SECRET;
+		if (workerSecret) {
+			after(async () => {
+				try {
+					await fetch(new URL("/api/internal/judge", req.url), {
+						method: "POST",
+						headers: { authorization: `Bearer ${workerSecret}` },
+						cache: "no-store",
+					});
+				} catch (error) {
+					console.error("Unable to kick judge worker after submission:", error);
+				}
+			});
+		}
 
 		return NextResponse.json(
 			{

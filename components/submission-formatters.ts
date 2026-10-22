@@ -17,12 +17,15 @@ export function getSubmissionLanguageLabel(submission: SubmissionHistoryItem): s
 }
 
 export function getSubmissionLabel(submission: SubmissionHistoryItem): string {
+	if (submission.status === "ERROR") {
+		return submission.compileDiagnostic ? "Compilation Error" : "Judging Error";
+	}
+
 	switch (submission.status) {
 		case "QUEUING": return "Queuing";
 		case "EVALUATING": return "Evaluating";
 		case "COMPLETED": return "Complete";
 		case "INCOMPLETE": return "Incomplete";
-		case "ERROR": return "Error";
 		default: return "Error";
 	}
 }

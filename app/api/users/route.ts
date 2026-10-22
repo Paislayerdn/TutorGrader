@@ -30,7 +30,7 @@ export const POST = route(async (request: Request) => {
 			? body.password
 			: "";
 
-	const requestedRole = body.role;
+	const requestedRole = currentUser.creatableRoles.find(role => role === body.role);
 	
 	if (!username) {
 		return NextResponse.json(
@@ -39,24 +39,17 @@ export const POST = route(async (request: Request) => {
 		);
 	}
 
-	if (!username || !registeredName || !password) {
+	if (!registeredName || !password) {
 		return NextResponse.json(
 			{ error: "All fields are required." },
 			{ status: 400 }
 		);
 	}
 
-	if (requestedRole !== "USER" && requestedRole !== "ADMIN") {
+	if (!requestedRole) {
 		return NextResponse.json(
 			{ error: "Invalid account role." },
 			{ status: 400 }
-		);
-	}
-
-	if (!currentUser.canCreateAccountWithRole(requestedRole)) {
-		return NextResponse.json(
-			{ error: "You do not have permission to create this account role." },
-			{ status: 403 },
 		);
 	}
 

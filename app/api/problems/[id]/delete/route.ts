@@ -5,6 +5,8 @@ import { ProblemRepo } from "@/data/supabase/repositories/ProblemRepo";
 import { isUuid } from "@/lib/isUuid";
 import { AttachmentStorage } from "@/data/storage/AttachmentStorage";
 
+export const runtime = "nodejs";
+
 type Props = {
 	params: Promise<{
 		id: string;

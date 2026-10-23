@@ -12,7 +12,7 @@ type UserRow = {
 	username: string;
 	registered_name: string;
 	status: "ACTIVE" | "BANNED" | "INACTIVE";
-	role: Role;
+	role: string;
 	created_by: string;
 	created_at: string;
 	password_changed_at: string | null;
@@ -58,7 +58,7 @@ export class UserRepo {
 				username: input.username,
 				registered_name: input.registeredName,
 				password_hash: input.passwordHash,
-				role: input.role,
+				role: input.role.toString(),
 				status: "ACTIVE",
 				created_by: input.createdById,
 			})
@@ -186,10 +186,11 @@ export class UserRepo {
 				: null,
 		);
 
-		switch (row.role) {
-			case "OWNER": return new Owner( row.id, data, row.created_by, );
-			case "ADMIN": return new Admin( row.id, data, row.created_by, );
-			case "USER": return new User( row.id, data, row.created_by, );
+			switch (row.role) {
+			case Role.OWNER: return new Owner( row.id, data, row.created_by, );
+			case Role.ADMIN: return new Admin( row.id, data, row.created_by, );
+			case Role.USER: return new User( row.id, data, row.created_by, );
+			default: throw new Error("Unknown account role.");
 		}
 	}
 }

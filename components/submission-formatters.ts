@@ -1,4 +1,5 @@
 import type { SubmissionHistoryItem } from "@/data/supabase/repositories/SubmissionHistoryRepo";
+import { TestVerdict } from "@/domain/submission/TestVerdict";
 
 export function formatSubmissionDate(value: string): string {
 	return new Date(value).toLocaleString(undefined, {
@@ -31,12 +32,12 @@ export function getSubmissionLabel(submission: SubmissionHistoryItem): string {
 }
 
 export function getPassedCount(submission: SubmissionHistoryItem): number {
-	return submission.testResults.filter(result => result.status === "PASS").length;
+	return submission.testResults.filter(result => result.status === TestVerdict.PASS).length;
 }
 
 export function formatTestVerdict(status: string): string {
-	if (status === "PASS") return "Correct Output";
-	if (status === "WRONG_ANSWER") return "Incorrect Output";
+	if (status === TestVerdict.PASS) return "Correct Output";
+	if (status === TestVerdict.WRONG_ANSWER) return "Incorrect Output";
 	return status.toLowerCase().split("_")
 		.map(word => word.charAt(0).toUpperCase() + word.slice(1))
 		.join(" ");

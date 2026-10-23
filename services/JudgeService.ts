@@ -2,12 +2,13 @@
 import {
 	JudgeRepo,
 	type JudgeSubmissionRow,
-	type JudgeTestCase,
 } from "@/data/supabase/repositories/JudgeRepo";
+import type { JudgeTestCase } from "@/domain/executor/JudgeTestCase";
 import { ExecutorRegistry } from "@/services/ExecutorRegistry";
 import { OutputComparator } from "@/domain/executor/OutputComparator";
 import type { JudgeVerdict } from "@/domain/executor/JudgeVerdict";
 import { SubmissionStatus } from "@/domain/submission/SubmissionStatus";
+import { TestVerdict } from "@/domain/submission/TestVerdict";
 import { DIAGNOSTIC_MAX_LENGTH } from "@/domain/executor/diagnostics";
 import {
 	OnlineCompilerExecutor,
@@ -177,7 +178,7 @@ export class JudgeService {
 				compilation = {
 					success: false as const,
 					error: {
-						kind: "COMPILE_ERROR" as const,
+						kind: TestVerdict.COMPILE_ERROR,
 						message: "Compilation failed.",
 						diagnostic: compileDiagnostic,
 						executionTimeMs: null,
@@ -211,7 +212,7 @@ export class JudgeService {
 		}
 
 		if (!compilation.success) {
-			if (compilation.error.kind !== "COMPILE_ERROR") {
+			if (compilation.error.kind !== TestVerdict.COMPILE_ERROR) {
 				console.error(
 					"Compilation provider failed:",
 					compilation.error,
@@ -313,7 +314,7 @@ export class JudgeService {
 						result = {
 							success: false as const,
 							error: {
-								kind: "PROVIDER_ERROR" as const,
+							kind: TestVerdict.PROVIDER_ERROR,
 								message: "OnlineCompiler could not process this test case.",
 								diagnostic: "OnlineCompiler omitted a test result.",
 								executionTimeMs: null,
@@ -348,7 +349,7 @@ export class JudgeService {
 					executionTimeMs = result.error.executionTimeMs;
 					memoryUsageKb = result.error.memoryUsageKb;
 
-					if (verdict === "TIME_LIMIT" || verdict === "MEMORY_LIMIT") {
+					if (verdict === TestVerdict.TIME_LIMIT || verdict === TestVerdict.MEMORY_LIMIT) {
 						hasIncompleteResult = true;
 					} else {
 						hasEvaluationError = true;
@@ -364,8 +365,8 @@ export class JudgeService {
 						testCase.expectedOutput,
 						version.output_comparison,
 					)
-						? "PASS"
-						: "WRONG_ANSWER";
+						? TestVerdict.PASS
+						: TestVerdict.WRONG_ANSWER;
 				}
 			} catch (error) {
 				console.error(
@@ -373,7 +374,7 @@ export class JudgeService {
 					error,
 				);
 
-				verdict = "PROVIDER_ERROR";
+				verdict = TestVerdict.PROVIDER_ERROR;
 				diagnostic = "The execution provider failed unexpectedly.";
 				hasEvaluationError = true;
 			}

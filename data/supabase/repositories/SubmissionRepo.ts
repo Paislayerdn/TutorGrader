@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
 import { SubmissionStatus } from "@/domain/submission/SubmissionStatus";
+import { Submission } from "@/domain/submission/Submission";
 
 export class SubmissionInProgressError extends Error {
 	constructor() {
@@ -13,17 +14,6 @@ export type CreateSubmissionData = {
 	problemId: string;
 	versionNumber: number;
 	languageId: number;
-	sourceStuffId: string;
-};
-
-export type SubmissionData = {
-	id: string;
-	userId: string;
-	problemId: string;
-	versionNumber: number;
-	languageId: number;
-	status: SubmissionStatus;
-	submittedAt: Date;
 	sourceStuffId: string;
 };
 
@@ -62,7 +52,7 @@ export class SubmissionRepo {
 		return data;
 	}
 
-	async create(data: CreateSubmissionData): Promise<SubmissionData> {
+	async create(data: CreateSubmissionData): Promise<Submission> {
 		const { data: row, error } = await supabaseAdmin
 			.from("submission")
 			.insert({
@@ -87,15 +77,15 @@ export class SubmissionRepo {
 
 		const submission = row as SubmissionRow;
 
-		return {
-			id: submission.id,
-			userId: submission.user_id,
-			problemId: submission.problem_id,
-			versionNumber: submission.version_number,
-			languageId: submission.language_id,
-			status: submission.status,
-			submittedAt: new Date(submission.submitted_at),
-			sourceStuffId: submission.source_stuff_id,
-		};
+		return new Submission(
+			submission.id,
+			submission.user_id,
+			submission.problem_id,
+			submission.version_number,
+			submission.language_id,
+			submission.status,
+			new Date(submission.submitted_at),
+			submission.source_stuff_id,
+		);
 	}
 }

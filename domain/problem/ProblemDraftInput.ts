@@ -72,10 +72,10 @@ export class ProblemDraftInput {
 		const timeLimitMs = body.timeLimitMs;
 		const memoryLimitKb = body.memoryLimitKb;
 		if (
-			typeof timeLimitMs !== "number" || !Number.isSafeInteger(timeLimitMs) || timeLimitMs < 1 || timeLimitMs > 60_000 ||
-			typeof memoryLimitKb !== "number" || !Number.isSafeInteger(memoryLimitKb) || memoryLimitKb < 1 || memoryLimitKb > 1_048_576
+			typeof timeLimitMs !== "number" || !Number.isSafeInteger(timeLimitMs) || timeLimitMs < 0 || timeLimitMs > 60_000 ||
+			typeof memoryLimitKb !== "number" || !Number.isSafeInteger(memoryLimitKb) || memoryLimitKb < 0 || memoryLimitKb > 1_048_576
 		) {
-			throw new ProblemDraftInputError(400, "Time must be 1–60,000 ms and memory must be 1–1,048,576 KB.");
+			throw new ProblemDraftInputError(400, "Time must be 0–60,000 ms and memory must be 0–1,048,576 KB.");
 		}
 
 		const outputComparison = body.outputComparison;

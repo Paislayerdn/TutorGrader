@@ -3,6 +3,7 @@ import type { ExecutionRequest } from "./ExecutionRequest";
 import type { ExecutionError } from "./ExecutionError";
 import type { ExecutionResult } from "./ExecutionResult";
 import type { Executor } from "./Executor";
+import { TestVerdict } from "@/domain/submission/TestVerdict";
 import { DIAGNOSTIC_MAX_LENGTH } from "./diagnostics";
 
 export type OnlineCompilerTestCase = {
@@ -40,7 +41,7 @@ const REQUEST_TIMEOUT_MS = 65_000;
 
 function createError(message: string, diagnostic: string | null = null): ExecutionError {
 	return {
-		kind: "PROVIDER_ERROR",
+		kind: TestVerdict.PROVIDER_ERROR,
 		message,
 		diagnostic: diagnostic?.slice(0, DIAGNOSTIC_MAX_LENGTH) ?? null,
 		executionTimeMs: null,
@@ -83,14 +84,16 @@ export class OnlineCompilerExecutor implements Executor {
 			return { ok: false, error: createError("OnlineCompiler is not configured.") };
 		}
 
-		// OnlineCompiler accepts limits from above zero through 30 seconds. Fail
-		// explicitly when a problem's configured limit cannot be represented.
-		if (timeLimitMs <= 0 || timeLimitMs > 30_000) {
+		// OnlineCompiler accepts per-test limits above zero through 30 seconds.
+		// A configured zero disables TutorGrader's threshold; ask the provider for
+		// its maximum allowance because the API does not support unlimited runs.
+		if (timeLimitMs < 0 || timeLimitMs > 30_000) {
 			return {
 				ok: false,
 				error: createError("OnlineCompiler cannot run this problem's configured time limit."),
 			};
 		}
+		const providerTimeLimitMs = timeLimitMs === 0 ? 30_000 : timeLimitMs;
 
 		let response: Response;
 		try {
@@ -109,7 +112,7 @@ export class OnlineCompilerExecutor implements Executor {
 						expected_output: testCase.expectedOutput,
 						hidden: false,
 					})),
-				time_limit: timeLimitMs / 1000,
+				time_limit: providerTimeLimitMs / 1000,
 				checker: "exact",
 				stop_on_failure: false,
 				}),
@@ -170,7 +173,7 @@ export class OnlineCompilerExecutor implements Executor {
 
 		if (test.truncated || output === undefined) {
 			return { success: false, error: {
-				kind: "PROVIDER_ERROR",
+				kind: TestVerdict.PROVIDER_ERROR,
 				message: test.truncated ? "OnlineCompiler truncated the test output." : "OnlineCompiler omitted the visible test output.",
 				diagnostic,
 				executionTimeMs,
@@ -179,12 +182,12 @@ export class OnlineCompilerExecutor implements Executor {
 			} };
 		}
 
-		const kind = test.verdict === "time_limit_exceeded" ? "TIME_LIMIT"
-			: test.verdict === "memory_limit_exceeded" ? "MEMORY_LIMIT"
-			: test.verdict === "compilation_error" ? "COMPILE_ERROR"
-			: test.verdict === "runtime_error" || test.verdict === "output_limit_exceeded" ? "RUNTIME_ERROR"
+		const kind = test.verdict === "time_limit_exceeded" ? TestVerdict.TIME_LIMIT
+			: test.verdict === "memory_limit_exceeded" ? TestVerdict.MEMORY_LIMIT
+			: test.verdict === "compilation_error" ? TestVerdict.COMPILE_ERROR
+			: test.verdict === "runtime_error" || test.verdict === "output_limit_exceeded" ? TestVerdict.RUNTIME_ERROR
 			: test.verdict === "accepted" || test.verdict === "wrong_answer" ? null
-			: "PROVIDER_ERROR";
+			: TestVerdict.PROVIDER_ERROR;
 
 		if (kind) {
 			return { success: false, error: {
@@ -199,13 +202,13 @@ export class OnlineCompilerExecutor implements Executor {
 
 		if (timeLimitMs > 0 && executionTimeMs !== null && executionTimeMs > timeLimitMs) {
 			return { success: false, error: {
-				kind: "TIME_LIMIT", message: "The program exceeded the time limit.", diagnostic,
+				kind: TestVerdict.TIME_LIMIT, message: "The program exceeded the time limit.", diagnostic,
 				executionTimeMs, memoryUsageKb, output,
 			} };
 		}
 		if (memoryLimitKb > 0 && memoryUsageKb !== null && memoryUsageKb > memoryLimitKb) {
 			return { success: false, error: {
-				kind: "MEMORY_LIMIT", message: "The program exceeded the memory limit.", diagnostic,
+				kind: TestVerdict.MEMORY_LIMIT, message: "The program exceeded the memory limit.", diagnostic,
 				executionTimeMs, memoryUsageKb, output,
 			} };
 		}

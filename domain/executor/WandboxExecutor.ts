@@ -1,4 +1,5 @@
 import type { Executor } from "./Executor";
+import { TestVerdict } from "@/domain/submission/TestVerdict";
 import type { CompilationRequest } from "./CompilationRequest";
 import type { ExecutionRequest } from "./ExecutionRequest";
 import type { ExecutionError } from "./ExecutionError";
@@ -88,7 +89,7 @@ export class WandboxExecutor implements Executor {
 				} catch (error) {
 					console.error("Wandbox batch execution failed:", error);
 					results[index] = createError(
-						"PROVIDER_ERROR",
+						TestVerdict.PROVIDER_ERROR,
 						"Wandbox could not process this test case.",
 						null,
 					);
@@ -122,14 +123,14 @@ export class WandboxExecutor implements Executor {
 			console.error(requestFailureMessage, error);
 			return {
 				ok: false,
-				value: createError("PROVIDER_ERROR", "Wandbox could not be reached or did not respond in time.", null),
+				value: createError(TestVerdict.PROVIDER_ERROR, "Wandbox could not be reached or did not respond in time.", null),
 			};
 		}
 		if (!response.ok) {
 			console.error("Wandbox returned HTTP status:", response.status);
 			return {
 				ok: false,
-				value: createError("PROVIDER_ERROR", "Wandbox returned an unsuccessful HTTP response.", null),
+				value: createError(TestVerdict.PROVIDER_ERROR, "Wandbox returned an unsuccessful HTTP response.", null),
 			};
 		}
 		try {
@@ -137,7 +138,7 @@ export class WandboxExecutor implements Executor {
 		} catch {
 			return {
 				ok: false,
-				value: createError("PROVIDER_ERROR", "Wandbox returned an invalid response.", null),
+				value: createError(TestVerdict.PROVIDER_ERROR, "Wandbox returned an invalid response.", null),
 			};
 		}
 	}
@@ -164,7 +165,7 @@ export class WandboxExecutor implements Executor {
 
 		if (status === null) {
 			return createError(
-				"PROVIDER_ERROR",
+				TestVerdict.PROVIDER_ERROR,
 				"Wandbox did not return a valid compilation status.",
 				diagnostic,
 			);
@@ -172,7 +173,7 @@ export class WandboxExecutor implements Executor {
 
 		if (status !== 0) {
 			return createError(
-				"COMPILE_ERROR",
+				TestVerdict.COMPILE_ERROR,
 				"Compilation failed.",
 				diagnostic ?? "Compilation failed without diagnostic output.",
 			);
@@ -228,7 +229,7 @@ export class WandboxExecutor implements Executor {
 
 		if (status === null) {
 			return createError(
-				"PROVIDER_ERROR",
+				TestVerdict.PROVIDER_ERROR,
 				"Wandbox did not return a valid execution status.",
 				diagnostic,
 				executionTimeMs,
@@ -239,7 +240,7 @@ export class WandboxExecutor implements Executor {
 
 		if (signal.trim() || status !== 0) {
 			return createError(
-				"RUNTIME_ERROR",
+				TestVerdict.RUNTIME_ERROR,
 				"The program terminated unsuccessfully.",
 				diagnostic,
 				executionTimeMs,
@@ -254,7 +255,7 @@ export class WandboxExecutor implements Executor {
 			executionTimeMs > request.timeLimitMs
 		) {
 			return createError(
-				"TIME_LIMIT",
+				TestVerdict.TIME_LIMIT,
 				"The program exceeded the time limit.",
 				diagnostic,
 				executionTimeMs,
@@ -269,7 +270,7 @@ export class WandboxExecutor implements Executor {
 			memoryUsageKb > request.memoryLimitKb
 		) {
 			return createError(
-				"MEMORY_LIMIT",
+				TestVerdict.MEMORY_LIMIT,
 				"The program exceeded the memory limit.",
 				diagnostic,
 				executionTimeMs,

@@ -31,5 +31,5 @@ export class User extends Visitor {
 	public get status(): UserStatus { return this.data.status; }
 	public get createdAt(): Date { return this.data.createdAt; }
 	public get passwordChangedAt(): Date | null { return this.data.passwordChangedAt; }
-	public get role(): Role { return "USER"; }
+	public get role(): Role { return Role.USER; }
 }

@@ -1,7 +1,9 @@
 
 import { supabaseAdmin } from "@/data/supabase/supabase-admin";
+import type { JudgeTestCase } from "@/domain/executor/JudgeTestCase";
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
 import type { SubmissionStatus } from "@/domain/submission/SubmissionStatus";
+import type { TestVerdict } from "@/domain/submission/TestVerdict";
 
 export type JudgeSubmissionRow = {
 	id: string;
@@ -30,18 +32,12 @@ export type JudgeStuffRow = {
 	storage_path: string;
 };
 
-export type JudgeTestCase = {
-	order: number;
-	input: string;
-	expectedOutput: string;
-};
-
 export type JudgeTestResultInput = {
 	submissionId: string;
 	problemId: string;
 	versionNumber: number;
 	testCaseOrder: number;
-	status: string;
+	status: TestVerdict;
 	executionTimeMs: number | null;
 	memoryUsageKb: number | null;
 	output: string | null;
@@ -323,7 +319,7 @@ export class JudgeRepo {
 					problem_id: result.problemId,
 					version_number: result.versionNumber,
 					test_case_order: result.testCaseOrder,
-					status: result.status,
+					status: result.status.toString(),
 					execution_time_ms: result.executionTimeMs,
 					memory_usage_kb: result.memoryUsageKb,
 					output: result.output,

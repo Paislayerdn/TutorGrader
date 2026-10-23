@@ -1,4 +1,5 @@
 import { OutputComparison } from "@/domain/problem/version/OutputComparison";
+import { Queue } from "@/lib/Queue";
 
 export class OutputComparator {
 	static matches(
@@ -22,18 +23,17 @@ export class OutputComparator {
 	}
 
 	private static matchesExpectedTokens(actual: string, expected: string): boolean {
-		const actualTokens = actual.trim().split(/\s+/).filter(Boolean);
-		const expectedTokens = expected.trim().split(/\s+/).filter(Boolean);
-		let actualIndex = 0;
+		const actualQueue = Queue.from(this.tokenize(actual));
+		const expectedQueue = Queue.from(this.tokenize(expected));
 
-		for (const expectedToken of expectedTokens) {
-			while (actualIndex < actualTokens.length && actualTokens[actualIndex] !== expectedToken) {
-				actualIndex++;
-			}
-			if (actualIndex === actualTokens.length) return false;
-			actualIndex++;
+		while (!actualQueue.isEmpty && !expectedQueue.isEmpty) {
+			if (actualQueue.dequeue() === expectedQueue.peek()) expectedQueue.dequeue();
 		}
 
-		return true;
+		return expectedQueue.isEmpty;
+	}
+
+	private static tokenize(text: string): string[] {
+		return text.trim().split(/\s+/).filter(Boolean);
 	}
 }

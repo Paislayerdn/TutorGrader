@@ -360,8 +360,8 @@ export default function CreateProblemForm({
 								onChange={(event) => setTimeLimitMs(event.target.value)}
 							/>
 							<p className={styles.hint}>
-								0 means unlimited time. The execution provider may still
-								impose its own timeout.
+								0 disables TutorGrader&apos;s time limit. The execution provider may
+								still impose its own timeout.
 							</p>
 						</label>
 
@@ -375,8 +375,8 @@ export default function CreateProblemForm({
 								onChange={(event) => setMemoryLimitKb(event.target.value)}
 							/>
 							<p className={styles.hint}>
-								0 means unlimited memory. The execution provider may still
-								impose its own memory limit.
+								0 disables TutorGrader&apos;s memory limit. The execution provider may
+								still impose its own memory limit.
 							</p>
 						</label>
 					</div>

@@ -4,12 +4,13 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { USERNAME_PATTERN, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "@/domain/user/Username";
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "@/domain/user/Password";
+import { Role } from "@/domain/user/Role";
 import PageFrame from "@/components/PageFrame";
 
 import styles from "./page.module.css";
 
 type CreateAccountFormProps = {
-	creatorRole: "ADMIN" | "OWNER";
+	creatorRole: Role.ADMIN | Role.OWNER;
 };
 
 export default function CreateAccountForm({
@@ -20,12 +21,12 @@ export default function CreateAccountForm({
 	const [username, setUsername] = useState("");
 	const [registeredName, setRegisteredName] = useState("");
 	const [password, setPassword] = useState("");
-	const [role, setRole] = useState("USER");
+	const [role, setRole] = useState(Role.USER.toString());
 
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 
-	const canCreateAdmin = creatorRole === "OWNER";
+	const canCreateAdmin = creatorRole === Role.OWNER;
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -43,7 +44,7 @@ export default function CreateAccountForm({
 					username,
 					registeredName,
 					password,
-					role,
+					role: role.toString(),
 				}),
 			});
 
@@ -121,8 +122,8 @@ export default function CreateAccountForm({
 								onChange={(event) => setRole(event.target.value)}
 								disabled={loading}
 							>
-								<option value="USER">USER</option>
-								<option value="ADMIN">ADMIN</option>
+								<option value={Role.USER.toString()}>{Role.USER}</option>
+								<option value={Role.ADMIN.toString()}>{Role.ADMIN}</option>
 							</select>
 						</label>
 					) : (
